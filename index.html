@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- Updated Viewport for iPhone Full Screen -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Nann Emulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Retro Game Boy Color Palette */
+        :root {
+            --screen-color: #9bbc0f; /* Iconic pea-green background */
+            --screen-shadow: #0f380f; /* Darker green for shadows/text */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Updated background to a slightly darker gray/blue-gray (#cbd5e1 - Tailwind slate-300) */
+            background-color: #cbd5e1;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Prevent iOS rubber banding */
+            overscroll-behavior: none; 
+            touch-action: none;
+        }
+
+        /* Container for scaling */
+        #console-wrapper {
+            transform-origin: center center;
+            transition: transform 0.2s ease-out;
+            will-change: transform;
+        }
+
+        /* The Game Boy Color Body - Base dimensions adjusted for taller mobile screens */
+        .gbc-body {
+            /* Updated body color to a soft, slightly off-white (#f8fafc - Tailwind slate-50) */
+            background-color: #f8fafc;
+            width: 440px; 
+            height: 760px; /* Increased height to better match mobile aspect ratios */
+            border-radius: 15px 15px 70px 15px;
+            
+            /* Enhanced realism for the plastic shell texture and 3D bevel */
+            box-shadow: 
+                /* Outer shadow for lifting the console */
+                -15px 15px 40px rgba(0,0,0,0.25),
+                /* Top-left light source highlight for a pronounced bevel */
+                inset 10px 10px 25px rgba(255,255,255,0.95),
+                /* Bottom-right darker shadow for depth and roundness */
+                inset -8px -8px 20px rgba(0,0,0,0.15),
+                /* Subtle inner top-left light to define edge */
+                inset 1px 1px 0px rgba(255,255,255,0.7);
+            
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 40px;
+        }
+
+        /* The Screen Bezel */
+        .gbc-screen-lens {
+            /* Darker bezel color */
+            background-color: #3f3f46; /* Tailwind zinc-700 */
+            width: 380px;
+            height: 300px;
+            border-radius: 15px 15px 45px 15px;
+            padding: 20px 30px;
+            /* Stronger, deeper inset for the lens cavity */
+            box-shadow: inset 0px 0px 20px rgba(0,0,0,0.9),
+                        inset 2px 2px 5px rgba(0,0,0,0.6); /* Additional subtle top-left dark inset */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .lens-branding {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .power-led {
+            width: 10px;
+            height: 10px;
+            background-color: #1c1c1c; /* Darker off state */
+            border-radius: 50%;
+            box-shadow: inset 1px 1px 2px rgba(0,0,0,0.7);
+            transition: background-color 0.2s;
+        }
+        .power-led.on {
+            /* Changed LED to red/orange matching GBC */
+            background-color: #ff3333;
+            box-shadow: 0 0 8px #ff3333, inset 0 0 5px rgba(255, 255, 255, 0.7);
+        }
+
+        .lcd-screen {
+            /* RETRO SCREEN STYLING */
+            background-color: var(--screen-color);
+            width: 320px;
+            height: 240px;
+            box-shadow: inset 3px 3px 10px rgba(0,0,0,0.8);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative; 
+            
+            /* Add Scanlines/Texture Overlay */
+            &::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                /* Light grid pattern for subtle pixel effect */
+                background: 
+                    repeating-linear-gradient(to bottom, 
+                        rgba(0,0,0,0.1) 0px, 
+                        rgba(0,0,0,0.1) 1px, 
+                        transparent 1px, 
+                        transparent 2px
+                    ),
+                    /* Vertical Lines for a finer grid (subtle) */
+                    repeating-linear-gradient(to right, 
+                        rgba(0,0,0,0.05) 0px, 
+                        rgba(0,0,0,0.05) 1px, 
+                        transparent 1px, 
+                        transparent 2px
+                    );
+                pointer-events: none; /* Allows clicks to pass through */
+                z-index: 5;
+            }
+        }
+        
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            /* Make iframe background transparent so the pea-green color shows through */
+            background-color: transparent; 
+        }
+
+        .nann-brand {
+            font-family: 'Inter', sans-serif;
+            font-style: italic;
+            font-weight: 900;
+            /* Purple/Violet */
+            color: #7c3aed; 
+            font-size: 28px;
+            letter-spacing: 1px;
+            margin-top: 15px;
+            /* Removed text-shadow for a clean, non-outlined look */
+        }
+
+        .controls-area {
+            width: 100%;
+            flex-grow: 1;
+            position: relative;
+        }
+
+        /* --- D-Pad Styles --- */
+        .dpad {
+            position: absolute;
+            top: 70px; /* Moved down slightly */
+            left: 40px;
+            width: 120px;
+            height: 120px;
+        }
+        .dpad-cross {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        /* D-Pad arms: Darker base color and shadow for 3D feel */
+        .dpad-arm {
+            background-color: #1c1c1c; /* Very dark gray */
+            position: absolute;
+            border-radius: 6px;
+            /* More pronounced top-left highlight and bottom-right shadow for a pronounced 3D effect */
+            box-shadow: 
+                inset 2px 2px 4px rgba(255,255,255,0.3), /* Light top-left inset */
+                inset -2px -2px 4px rgba(0,0,0,0.4),    /* Dark bottom-right inset */
+                0 6px 0 #000;                           /* Deeper physical shadow when not pressed */
+            transition: transform 0.1s, box-shadow 0.1s; 
+            will-change: transform, box-shadow; 
+        }
+        /* D-Pad Press Animation */
+        .dpad-arm.pressed-arm {
+            transform: translateY(2px) !important;
+            box-shadow: 
+                inset 2px 2px 4px rgba(255,255,255,0.3), 
+                inset -2px -2px 4px rgba(0,0,0,0.4),    
+                0 4px 0 #000; /* reduced shadow on press */
+        }
+
+        .dpad-h {
+            width: 120px;
+            height: 36px;
+            top: 42px;
+            left: 0;
+        }
+        .dpad-v {
+            width: 36px;
+            height: 120px;
+            left: 42px;
+            top: 0;
+        }
+        /* D-Pad Center */
+        .dpad-center {
+            position: absolute;
+            width: 36px;
+            height: 36px;
+            background-color: #1c1c1c;
+            top: 42px;
+            left: 42px;
+            z-index: 10;
+        }
+        /* D-Pad Center Circle (Concave effect) - slightly deeper */
+        .dpad-center::after {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #000 0%, #1c1c1c 70%);
+            opacity: 0.9; /* More opaque for deeper look */
+        }
+
+        /* Invisible Click Targets (same as before) */
+        .dpad-btn {
+            position: absolute;
+            width: 42px;
+            height: 42px;
+            z-index: 20;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .dpad-up { top: 0; left: 39px; }
+        .dpad-down { bottom: 0; left: 39px; }
+        .dpad-left { top: 39px; left: 0; }
+        .dpad-right { top: 39px; right: 0; }
+
+        /* Action Buttons */
+        .action-buttons {
+            position: absolute;
+            top: 70px;
+            right: 30px;
+            width: 140px;
+            height: 70px;
+            transform: rotate(-20deg); /* Slightly less rotation */
+        }
+        /* Button style update - More prominent bevels */
+        .btn-round {
+            width: 55px; /* Slightly larger */
+            height: 55px;
+            background-color: #1c1c1c; 
+            border-radius: 50%;
+            color: #555;
+            font-weight: bold;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Enhanced 3D bevel effect for round buttons */
+            box-shadow: 
+                inset 3px 3px 8px rgba(255,255,255,0.2), /* Top-left highlight */
+                inset -3px -3px 8px rgba(0,0,0,0.5), /* Bottom-right shadow */
+                0 6px 0 #000; /* Deeper physical shadow */
+            cursor: pointer;
+            position: absolute;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        /* Press animation update - deeper press */
+        .btn-round:active, .btn-round.pressed {
+            transform: translateY(4px); /* Deeper press */
+            box-shadow: 
+                inset 3px 3px 8px rgba(255,255,255,0.2), 
+                inset -3px -3px 8px rgba(0,0,0,0.5), 
+                0 2px 0 #000; /* Smaller shadow when pressed */
+        }
+        .btn-b { bottom: 0; left: 0; }
+        .btn-a { top: 0; right: 0; }
+        
+        .btn-label {
+            position: absolute;
+            bottom: -25px;
+            right: 18px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #7c3aed;
+            transform: rotate(20deg); /* Adjusted label rotation */
+        }
+
+        /* Start/Select Buttons */
+        .meta-buttons {
+            position: absolute;
+            bottom: 60px; /* Moved down slightly */
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 25px; /* Wider gap */
+        }
+        .btn-pill {
+            width: 65px; /* Longer */
+            height: 16px; /* Thicker */
+            background-color: #6b7280; /* Tailwind gray-500 */
+            border-radius: 12px;
+            transform: rotate(-25deg);
+            /* Enhanced 3D bevel for pill buttons */
+            box-shadow: 
+                inset 2px 2px 5px rgba(255,255,255,0.3), /* Top-left highlight */
+                inset -2px -2px 5px rgba(0,0,0,0.5),    /* Bottom-right shadow */
+                0 4px 0 #4b5563; /* Tailwind gray-700 - Deeper physical shadow */
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        /* Press animation update - deeper press */
+        .btn-pill:active, .btn-pill.pressed {
+            transform: rotate(-25deg) translateY(2px);
+            box-shadow: 
+                inset 2px 2px 5px rgba(255,255,255,0.3), 
+                inset -2px -2px 5px rgba(0,0,0,0.5),
+                0 2px 0 #4b5563; /* Smaller shadow when pressed */
+        }
+        .meta-label {
+            font-size: 11px;
+            color: #7c3aed;
+            text-align: center;
+            margin-top: 8px;
+            transform: rotate(-25deg);
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            user-select: none;
+        }
+
+        /* Overlay Styles */
+        .menu-ui, #key-binding-menu { 
+            width: 100%; 
+            height: 100%; 
+            /* White/Off-white background matching the console shell */
+            background-color: #f8fafc; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            text-align: center; 
+            padding: 10px; 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            z-index: 100; /* Ensure it is always on top */
+        }
+        #key-binding-menu { 
+            background-color: rgba(248, 250, 252, 0.95); 
+            display: none; 
+            z-index: 200; 
+        }
+        .binding-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 300px;
+            margin: 8px 0;
+            padding: 6px 10px;
+            border-radius: 8px;
+            background-color: #e5e7eb;
+        }
+        .binding-key {
+            font-weight: 700;
+            color: #ef4444; /* Red color for keys */
+            padding: 4px 8px;
+            border: 1px solid #999;
+            border-radius: 4px;
+            min-width: 60px;
+            text-align: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        .active-binding {
+            background-color: #fca5a5;
+            border-color: #ef4444;
+            animation: pulse-red 1s infinite alternate;
+        }
+        @keyframes pulse-red {
+            from { opacity: 0.7; }
+            to { opacity: 1.0; }
+        }
+        
+    </style>
+</head>
+<body oncontextmenu="return false;">
+    <div id="console-wrapper">
+        <div class="gbc-body">
+            
+            <div class="gbc-screen-lens">
+                <div class="lens-branding">
+                    <div class="power-led" id="power-led"></div>
+                    <div class="text-xs text-zinc-400 font-bold tracking-wider">BATTERY</div>
+                </div>
+                
+                <div class="lcd-screen" id="lcd-screen">
+                    <div id="loading-overlay" class="text-white text-center">
+                        <svg class="animate-spin h-5 w-5 text-white inline-block mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Loading Game...
+                    </div>
+                    
+                    <!-- The game will be loaded into this iframe -->
+                    <iframe id="game-iframe" src="https://nann.life" allow="keyboard; game" referrerpolicy="no-referrer"></iframe>
+                    
+                    <!-- Key Binding Menu Overlay -->
+                    <div id="key-binding-menu" class="menu-ui">
+                        <h2 class="text-xl font-bold mb-4">Key Bindings</h2>
+                        <div id="bindings-list" class="mb-6">
+                            <!-- Binding rows inserted here by JavaScript -->
+                        </div>
+                        <!-- IMPORTANT FIX: Removed inline 'onclick' and added ID for JS listener -->
+                        <button id="btn-close-key-map" class="px-6 py-2 bg-indigo-600 text-white rounded-lg shadow-lg hover:bg-indigo-700 transition">
+                            Close Menu
+                        </button>
+                        <div class="absolute bottom-5 text-xs text-gray-500">Click a key to re-bind it. Press ESC to cancel binding.</div>
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="nann-brand">NANN EMULATOR</div>
+
+            <div class="controls-area">
+                
+                <!-- D-Pad Controls -->
+                <div class="dpad">
+                    <div class="dpad-cross">
+                        <div class="dpad-arm dpad-h"></div>
+                        <div class="dpad-arm dpad-v"></div>
+                        <div class="dpad-center"></div>
+
+                        <!-- Invisible Click Targets with Touch/Mouse Events -->
+                        <div class="dpad-btn dpad-up" data-label="Up"></div>
+                        <div class="dpad-btn dpad-down" data-label="Down"></div>
+                        <div class="dpad-btn dpad-left" data-label="Left"></div>
+                        <div class="dpad-btn dpad-right" data-label="Right"></div>
+                    </div>
+                </div>
+
+                <!-- A & B Action Buttons -->
+                <div class="action-buttons">
+                    <!-- B Button -->
+                    <div class="btn-round btn-b" id="btn-b" data-label="B">
+                        <div class="btn-label" style="transform: rotate(20deg);">B</div>
+                    </div>
+                    <!-- A Button -->
+                    <div class="btn-round btn-a" id="btn-a" data-label="A">
+                        <div class="btn-label" style="transform: rotate(20deg);">A</div>
+                    </div>
+                </div>
+
+                <!-- START & SELECT Buttons -->
+                <div class="meta-buttons">
+                    <div class="flex flex-col items-center">
+                        <div class="btn-pill" id="btn-select" data-label="Select"></div>
+                        <div class="meta-label">SELECT</div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <div class="btn-pill" id="btn-start" data-label="Start"></div>
+                        <div class="meta-label">START</div>
+                    </div>
+                </div>
+                
+                <!-- Menu Button -->
+                <!-- IMPORTANT FIX: Removed inline 'onclick' and added ID for JS listener -->
+                <button 
+                    id="btn-key-map-menu" 
+                    class="absolute bottom-24 right-5 bg-indigo-600 text-white p-2 rounded-full shadow-lg hover:bg-indigo-700 transition text-xs"
+                    style="transform: rotate(-25deg); width: 80px;"
+                >
+                    KEY MAP
+                </button>
+
+            </div>
+
+        </div>
+    </div>
+    
+    <script type="module">
+        // Firebase Imports (required for Canvas environment)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // No Firestore needed for this version, but keeping Firebase init for auth
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        let db, auth;
+        let userId = null;
+
+        // Key Mappings (Standard NES/Game Boy mappings)
+        let keyMap = {
+            'Up': { key: 'w', code: 'KeyW', keyCode: 87 },
+            'Down': { key: 's', code: 'KeyS', keyCode: 83 },
+            'Left': { key: 'a', code: 'KeyA', keyCode: 65 },
+            'Right': { key: 'd', code: 'KeyD', keyCode: 68 },
+            'A': { key: 'j', code: 'KeyJ', keyCode: 74 },
+            'B': { key: 'k', code: 'KeyK', keyCode: 75 },
+            'Start': { key: ' ', code: 'Space', keyCode: 32 },
+            'Select': { key: 'e', code: 'KeyE', keyCode: 69 },
+        };
+        
+        const keyMapStorageKey = `emulator-keymap-${appId}`;
+        let isBindingMode = false;
+        let activeBindingLabel = null;
+        let virtualKeyStates = {}; // Track the pressed state of virtual buttons
+
+        // --- Initialization and Utility Functions ---
+
+        async function initFirebase() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                
+                // Sign in with custom token or anonymously
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        loadKeyMap();
+                        document.getElementById('power-led').classList.add('on');
+                        document.getElementById('loading-overlay').style.display = 'none';
+                    } else {
+                        userId = null;
+                        document.getElementById('power-led').classList.remove('on');
+                        document.getElementById('loading-overlay').style.display = 'flex';
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase Initialization/Auth Error:", error);
+                document.getElementById('loading-overlay').innerHTML = "Failed to load emulator. Check console for details.";
+                document.getElementById('power-led').classList.remove('on');
+            }
+        }
+
+        function loadKeyMap() {
+            const storedMap = localStorage.getItem(keyMapStorageKey);
+            if (storedMap) {
+                try {
+                    keyMap = JSON.parse(storedMap);
+                } catch (e) {
+                    console.error("Failed to parse stored key map:", e);
+                }
+            }
+            renderBindings();
+        }
+
+        function saveKeyMap() {
+            localStorage.setItem(keyMapStorageKey, JSON.stringify(keyMap));
+            renderBindings();
+        }
+
+        function generateBindingRow(label) {
+            const mappedKey = keyMap[label];
+            const displayKey = mappedKey ? (mappedKey.key === ' ' ? 'Space' : mappedKey.key.toUpperCase()) : 'N/A';
+            
+            // IMPORTANT FIX: Removed inline 'onclick'. Added 'binding-target' class for JS listener.
+            return `
+                <div class="binding-row">
+                    <span class="font-semibold">${label}:</span>
+                    <span 
+                        class="binding-key binding-target" 
+                        data-label="${label}" 
+                        id="binding-key-${label}"
+                    >
+                        ${displayKey}
+                    </span>
+                </div>
+            `;
+        }
+
+        function renderBindings() {
+            const bindingsList = document.getElementById('bindings-list');
+            if (bindingsList) {
+                bindingsList.innerHTML = Object.keys(keyMap).map(generateBindingRow).join('');
+                
+                // Attach click listeners to the new spans
+                bindingsList.querySelectorAll('.binding-target').forEach(span => {
+                    const label = span.getAttribute('data-label');
+                    span.addEventListener('click', () => startKeyBinding(label));
+                });
+            }
+        }
+
+        // --- Event Listeners and Logic ---
+
+        function setupControlListeners() {
+            const controls = document.querySelectorAll('.dpad-btn, .btn-round, .btn-pill');
+            
+            controls.forEach(control => {
+                const label = control.getAttribute('data-label');
+                
+                // MOUSE Events (Click/Desktop)
+                control.addEventListener('mousedown', (e) => handlePress(label, true, control, e));
+                control.addEventListener('mouseup', (e) => handlePress(label, false, control, e));
+                control.addEventListener('mouseleave', (e) => handlePress(label, false, control, e));
+                
+                // TOUCH Events (Mobile)
+                control.addEventListener('touchstart', (e) => {
+                    e.preventDefault(); 
+                    handlePress(label, true, control, e);
+                }, { passive: false });
+                control.addEventListener('touchend', (e) => handlePress(label, false, control, e));
+                control.addEventListener('touchcancel', (e) => handlePress(label, false, control, e));
+            });
+            
+            // Menu Controls (New listeners replacing inline onclicks)
+            document.getElementById('btn-key-map-menu')?.addEventListener('click', toggleKeyBindingMenu);
+            document.getElementById('btn-close-key-map')?.addEventListener('click', toggleKeyBindingMenu);
+            
+            // Global keydown/keyup listeners for actual keyboard input
+            window.addEventListener('keydown', handleGlobalKey);
+            window.addEventListener('keyup', handleGlobalKey);
+        }
+
+        // Handles both visual updates (for D-Pad) and sending key events
+        function handleGlobalKey(e) {
+            
+            // Check if we are currently in binding mode and a key is pressed (not released)
+            if (isBindingMode && e.type === 'keydown') {
+                handleBindingKey(e);
+                if (activeBindingLabel === null) { 
+                    return; 
+                }
+            }
+            
+            // If in binding mode and binding didn't resolve (e.g., waiting for key), suppress keypress
+            if (isBindingMode) {
+                 e.preventDefault();
+                 e.stopPropagation();
+                 return;
+            }
+
+            // --- Game Input Handling ---
+            
+            const entry = Object.entries(keyMap).find(([, mappedKey]) => 
+                mappedKey.code === e.code || mappedKey.key === e.key
+            );
+
+            if (entry) {
+                const label = entry[0];
+                const isDown = e.type === 'keydown';
+                
+                e.preventDefault();
+                e.stopPropagation();
+
+                // D-Pad arm visual handling
+                if (['Up', 'Down', 'Left', 'Right'].includes(label)) {
+                    const dpadArmH = document.querySelector('.dpad-h');
+                    const dpadArmV = document.querySelector('.dpad-v');
+                    
+                    if (isDown) {
+                        if (label === 'Left' || label === 'Right') dpadArmH?.classList.add('pressed-arm');
+                        if (label === 'Up' || label === 'Down') dpadArmV?.classList.add('pressed-arm');
+                    } else {
+                        // On keyup, remove the class only if the opposite key is NOT held down
+                        if (label === 'Left' && !virtualKeyStates['Right']) dpadArmH?.classList.remove('pressed-arm');
+                        if (label === 'Right' && !virtualKeyStates['Left']) dpadArmH?.classList.remove('pressed-arm');
+                        if (label === 'Up' && !virtualKeyStates['Down']) dpadArmV?.classList.remove('pressed-arm');
+                        if (label === 'Down' && !virtualKeyStates['Up']) dpadArmV?.classList.remove('pressed-arm');
+                    }
+                }
+                
+                // Send the key message to the iframe (manages virtualKeyStates)
+                handleVirtualPress(label, isDown);
+            } 
+        }
+
+        // Used for A, B, Start, Select buttons to apply/remove the .pressed class
+        function handleVisualPress(element, isDown, e) {
+            if (e && (e.type === 'touchstart' || e.type === 'mousedown')) {
+                e.preventDefault();
+                element.classList.add('pressed');
+            } else if (!isDown) {
+                element.classList.remove('pressed');
+            }
+        }
+        
+        // Central logic for sending keys and managing virtual state (prevents redundant keydown/keyup)
+        function handleVirtualPress(label, isDown) {
+            const currentState = virtualKeyStates[label] || false;
+
+            if (isDown && !currentState) {
+                virtualKeyStates[label] = true;
+                sendKey(label, true); // Send keydown
+            } else if (!isDown && currentState) {
+                virtualKeyStates[label] = false;
+                sendKey(label, false); // Send keyup
+            }
+        }
+
+        // Unified Handler for Game Input + Animation
+        function handlePress(label, isDown, element = null, e = null) {
+            
+            if (isBindingMode) {
+                if (e && (e.type === 'touchstart' || e.type === 'mousedown')) {
+                    e.preventDefault();
+                }
+                return; // Do nothing if in binding mode
+            }
+            
+            // 1. Handle Visual Press (Applies to A/B/Start/Select elements)
+            if (element) {
+                handleVisualPress(element, isDown, e);
+            } else if (e && (e.type === 'touchstart' || e.type === 'mousedown')) {
+                e.preventDefault();
+            }
+
+            // 2. Send Key Event (via virtual key press handler)
+            handleVirtualPress(label, isDown);
+        }
+
+        function sendKey(label, isDown) {
+            const iframe = document.getElementById('game-iframe');
+            if (!iframe || !iframe.contentWindow || isBindingMode) return;
+            
+            const mappedKey = keyMap[label];
+            if (!mappedKey) return;
+
+            const eventType = isDown ? 'keydown' : 'keyup';
+            
+            // Post the message to the iframe
+            iframe.contentWindow.postMessage({
+                type: eventType,
+                key: mappedKey.key,
+                code: mappedKey.code,
+                keyCode: mappedKey.keyCode
+            }, '*');
+        }
+
+        // --- Key Binding Logic ---
+        
+        function toggleKeyBindingMenu() {
+            isBindingMode = !isBindingMode;
+            const menu = document.getElementById('key-binding-menu');
+            menu.style.display = isBindingMode ? 'flex' : 'none';
+            if (isBindingMode) {
+                renderBindings(); 
+                activeBindingLabel = null;
+            } else {
+                if (activeBindingLabel) {
+                    document.getElementById(`binding-key-${activeBindingLabel}`)?.classList.remove('active-binding');
+                }
+            }
+        }
+        
+        function startKeyBinding(label) {
+            if (!isBindingMode) return;
+
+            // Clear previous active binding highlight
+            if (activeBindingLabel) {
+                document.getElementById(`binding-key-${activeBindingLabel}`)?.classList.remove('active-binding');
+            }
+
+            activeBindingLabel = label;
+            document.getElementById(`binding-key-${label}`).classList.add('active-binding');
+            
+            // Display message to the user
+            document.getElementById(`binding-key-${label}`).textContent = 'PRESS KEY...';
+        }
+        
+        function handleBindingKey(e) {
+            if (!isBindingMode || !activeBindingLabel) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Ignore modifier keys and special keys like ESC (which cancels binding)
+            if (e.key === "Escape" || e.code.startsWith('Meta') || e.code.startsWith('Control') || e.code.startsWith('Shift') || e.code.startsWith('Alt')) {
+                // Cancel current binding
+                document.getElementById(`binding-key-${activeBindingLabel}`)?.classList.remove('active-binding');
+                renderBindings(); 
+                activeBindingLabel = null;
+                return;
+            }
+            
+            // Update the keyMap with the new binding
+            keyMap[activeBindingLabel] = {
+                key: e.key.toLowerCase(), 
+                code: e.code,
+                keyCode: e.keyCode
+            };
+            
+            // Save and update UI
+            saveKeyMap(); 
+            document.getElementById(`binding-key-${activeBindingLabel}`)?.classList.remove('active-binding');
+            activeBindingLabel = null;
+        }
+
+        // --- Initial Setup ---
+        window.onload = function() {
+            initFirebase();
+            setupControlListeners();
+        };
+
+        // --- Responsive Scaling ---
+        function scaleConsole() {
+            const wrapper = document.getElementById('console-wrapper');
+            if (!wrapper) return;
+            
+            const consoleWidth = 440; // GBC width
+            const consoleHeight = 760; // GBC height (new value)
+            const padding = 40; // Space around the console
+            
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            
+            const requiredWidth = consoleWidth + padding;
+            const requiredHeight = consoleHeight + padding;
+            
+            let scaleX = 1;
+            let scaleY = 1;
+            
+            // Calculate scale factors
+            scaleX = Math.min(1, windowWidth / requiredWidth);
+            scaleY = Math.min(1, windowHeight / requiredHeight);
+            
+            const scale = Math.min(scaleX, scaleY);
+            
+            wrapper.style.transform = `scale(${scale})`;
+        }
+
+        window.addEventListener('resize', scaleConsole);
+        window.addEventListener('orientationchange', scaleConsole);
+        
+        // Initial scale calculation
+        scaleConsole();
+    </script>
+</body>
+</html>
