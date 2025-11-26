@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Nann Emulator</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght400;700;900&display=swap" rel="stylesheet">
     
     <style>
         /* Retro Game Boy Color Palette */
@@ -25,7 +25,7 @@
             background-color: #cbd5e1;
             
             /* MANDATORY FOR FULL SCREEN FIT: Sets body to use 100% of viewport height/width */
-            overflow: hidden; /* CRITICAL: Prevents scrollbars from appearing */
+            overflow: hidden; /* CRITICAL: Prevents outer scrollbars from appearing */
             height: 100vh;
             width: 100vw;
             display: flex;
@@ -84,6 +84,7 @@
             flex-direction: column;
             align-items: center;
             position: relative;
+            overflow: hidden; /* Ensure anything in the lens area is clipped */
         }
 
         .lens-branding {
@@ -154,6 +155,8 @@
             border: none;
             /* Make iframe background transparent so the pea-green color shows through */
             background-color: transparent; 
+            /* FIX: Ensure the iframe content itself does not create scrollbars */
+            overflow: hidden !important; 
         }
 
         .nann-brand {
@@ -362,7 +365,7 @@
                     </div>
                     
                     <!-- The game will be loaded into this iframe -->
-                    <iframe id="game-iframe" src="about:blank" allow="keyboard; game" referrerpolicy="no-referrer"></iframe>
+                    <iframe id="game-iframe" src="about:blank" scrolling="no" allow="keyboard; game; clipboard-read; clipboard-write" referrerpolicy="no-referrer"></iframe>
                     
                     <!-- Key Binding Menu Overlay -->
                     <div id="key-binding-menu" class="menu-ui">
@@ -461,7 +464,6 @@
         // Firebase Imports (required for Canvas environment)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        // No Firestore needed for this version, but keeping Firebase init for auth
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
@@ -470,15 +472,15 @@
         let db, auth;
         let userId = null;
 
-        // Key Mappings (Standard NES/Game Boy mappings)
+        // Key Mappings (UPDATED TO USER PREFERENCES)
         let keyMap = {
             'Up': { key: 'w', code: 'KeyW', keyCode: 87 },
             'Down': { key: 's', code: 'KeyS', keyCode: 83 },
             'Left': { key: 'a', code: 'KeyA', keyCode: 65 },
-            'Right': { key: 'd', code: 'KeyD', keyCode: 68 },
-            'A': { key: 'j', code: 'KeyJ', keyCode: 74 },
-            'B': { key: 'k', code: 'KeyK', keyCode: 75 },
-            'Start': { key: ' ', code: 'Space', keyCode: 32 },
+            'Right': { key: 'l', code: 'KeyL', keyCode: 76 }, // Moved from 'd' to 'l'
+            'A': { key: ' ', code: 'Space', keyCode: 32 },   // Changed to 'Space'
+            'B': { key: 'd', code: 'KeyD', keyCode: 68 },     // Changed to 'd'
+            'Start': { key: 'Enter', code: 'Enter', keyCode: 13 }, // Moved from 'Space' to 'Enter'
             'Select': { key: 'e', code: 'KeyE', keyCode: 69 },
         };
         
@@ -576,6 +578,7 @@
 
         function handleGlobalKey(e) {
             
+            // 1. Menu and Binding Mode Check
             if (currentMenu !== null && e.type === 'keydown') {
                 if (e.key === "Escape") {
                     if (currentMenu === 'keymap') toggleKeyBindingMenu();
@@ -594,7 +597,7 @@
                 }
             }
             
-            // Check if we are currently in binding mode and a key is pressed (not released)
+            // Check if we are currently listening for a new binding key
             if (isBindingMode && e.type === 'keydown') {
                 handleBindingKey(e);
                 // If binding mode consumed the key press (and activeBindingLabel is now null), we stop here.
@@ -611,6 +614,11 @@
                  return;
             }
 
+            // If a menu is open, block game input
+            if (currentMenu !== null) {
+                return;
+            }
+
             // --- Game Input Handling ---
             
             const entry = Object.entries(keyMap).find(([, mappedKey]) => 
@@ -624,26 +632,7 @@
                 e.preventDefault();
                 e.stopPropagation();
 
-                // D-Pad arm visual handling 
-                if (['Up', 'Down', 'Left', 'Right'].includes(label)) {
-                    const dpadArmH = document.querySelector('.dpad-h');
-                    const dpadArmV = document.querySelector('.dpad-v');
-                    
-                    handleVirtualPress(label, isDown, false); // Update state
-
-                    if (isDown) {
-                        if (label === 'Left' || label === 'Right') dpadArmH?.classList.add('pressed-arm');
-                        if (label === 'Up' || label === 'Down') dpadArmV?.classList.add('pressed-arm');
-                    } else {
-                        const isHorizontalPressed = virtualKeyStates['Left'] || virtualKeyStates['Right'];
-                        const isVerticalPressed = virtualKeyStates['Up'] || virtualKeyStates['Down'];
-
-                        if (!isHorizontalPressed) dpadArmH?.classList.remove('pressed-arm');
-                        if (!isVerticalPressed) dpadArmV?.classList.remove('pressed-arm');
-                    }
-                }
-                
-                // Send the key message to the iframe
+                // Send the key message and update state/visuals via unified function
                 handleVirtualPress(label, isDown);
             } 
         }
@@ -661,6 +650,27 @@
         }
         
         function handleVirtualPress(label, isDown, shouldSendMessage = true) {
+            // FIX: D-Pad visual handling moved here to apply to all inputs (keyboard, mouse, touch)
+            if (['Up', 'Down', 'Left', 'Right'].includes(label)) {
+                const dpadArmH = document.querySelector('.dpad-h');
+                const dpadArmV = document.querySelector('.dpad-v');
+                
+                // Track the new state before applying press logic
+                virtualKeyStates[label] = isDown; 
+
+                if (isDown) {
+                    if (label === 'Left' || label === 'Right') dpadArmH?.classList.add('pressed-arm');
+                    if (label === 'Up' || label === 'Down') dpadArmV?.classList.add('pressed-arm');
+                } else {
+                    const isHorizontalPressed = virtualKeyStates['Left'] || virtualKeyStates['Right'];
+                    const isVerticalPressed = virtualKeyStates['Up'] || virtualKeyStates['Down'];
+
+                    if (!isHorizontalPressed) dpadArmH?.classList.remove('pressed-arm');
+                    if (!isVerticalPressed) dpadArmV?.classList.remove('pressed-arm');
+                }
+            }
+            // End D-Pad visual handling
+
             const currentState = virtualKeyStates[label] || false;
 
             if (isDown && !currentState) {
@@ -674,18 +684,23 @@
 
         function handlePress(label, isDown, element = null, e = null) {
             
+            // Check if any menu is open (must block input)
             if (currentMenu !== null) {
+                // Prevent default scrolling on touch even if controls are disabled
                 if (e && (e.type === 'touchstart' || e.type === 'mousedown')) {
                     e.preventDefault();
                 }
-                return; // Ignore control presses if a menu is open
+                return; 
             }
             
+            // Prevent default behavior (like scrolling/text selection) for game controls
             if (e && (e.type === 'touchstart' || e.type === 'mousedown')) {
                 e.preventDefault();
             }
 
-            handleVisualPress(element, isDown);
+            // Update visual state for A/B/Start/Select buttons
+            handleVisualPress(element, isDown); 
+            // Update virtual state and send message (this also handles D-pad visuals)
             handleVirtualPress(label, isDown);
         }
 
@@ -710,29 +725,29 @@
         // --- Menu Logic ---
         
         function toggleKeyBindingMenu() {
-            if (currentMenu === 'upload') return; // Don't open if upload is open
+            if (currentMenu === 'upload') return; 
             const menu = document.getElementById('key-binding-menu');
             
             if (currentMenu === 'keymap') {
                 currentMenu = null;
-                isBindingMode = false;
                 menu.style.display = 'none';
+
+                // If closing, clear active binding state
+                if (activeBindingLabel) {
+                     document.getElementById(`binding-key-${activeBindingLabel}`)?.classList.remove('active-binding');
+                     activeBindingLabel = null;
+                     isBindingMode = false;
+                }
             } else {
                 currentMenu = 'keymap';
-                isBindingMode = true;
                 menu.style.display = 'flex';
                 renderBindings(); 
-            }
-            
-            // If closing, clear active binding state
-            if (!isBindingMode && activeBindingLabel) {
-                 document.getElementById(`binding-key-${activeBindingLabel}`)?.classList.remove('active-binding');
-                 activeBindingLabel = null;
+                isBindingMode = false; // Ensure binding mode is off when just opening the menu
             }
         }
 
         function toggleUploadMenu() {
-            if (currentMenu === 'keymap') return; // Don't open if keymap is open
+            if (currentMenu === 'keymap') return; 
             const menu = document.getElementById('upload-menu');
 
             if (currentMenu === 'upload') {
@@ -769,7 +784,6 @@
                 const htmlContent = e.target.result;
                 
                 // Use a Blob URL to load the content into the iframe's source.
-                // This isolates the content and allows it to run.
                 try {
                     const blob = new Blob([htmlContent], { type: 'text/html' });
                     const blobUrl = URL.createObjectURL(blob);
@@ -778,7 +792,6 @@
                     // Cleanup old URL object when the iframe loads the new one
                     iframe.onload = () => {
                          // Revoke the old URL after the new content has loaded
-                         // This is important for memory management, though hard to track the very first one
                          if (iframe.dataset.blobUrl) {
                             URL.revokeObjectURL(iframe.dataset.blobUrl);
                          }
@@ -804,6 +817,8 @@
         // --- Key Binding Sub-Logic ---
         
         function startKeyBinding(label) {
+            // FIX: Set binding mode here, only when a target is clicked
+            isBindingMode = true; 
             if (!isBindingMode) return;
 
             // Clear previous active binding highlight
@@ -824,17 +839,25 @@
             e.preventDefault();
             e.stopPropagation();
 
-            // Ignore modifier keys
+            // Ignore modifier keys that aren't useful for binding
             if (e.key === "Escape" || e.code.startsWith('Meta') || e.code.startsWith('Control') || e.code.startsWith('Shift') || e.code.startsWith('Alt')) {
-                // ESC is handled globally above to close the menu
                 return;
             }
             
             // Update the keyMap with the new binding
+            let keyToUse = e.key;
+            let codeToUse = e.code;
+            let keyCodeToUse = e.keyCode;
+
+            // Normalize Enter/Space key values
+            if (codeToUse === 'Space') { keyToUse = ' '; } 
+            if (codeToUse === 'Enter') { keyToUse = 'Enter'; }
+
+
             keyMap[activeBindingLabel] = {
-                key: e.key.toLowerCase(), 
-                code: e.code,
-                keyCode: e.keyCode
+                key: keyToUse.toLowerCase(), 
+                code: codeToUse,
+                keyCode: keyCodeToUse
             };
             
             // Save and update UI
@@ -858,13 +881,19 @@
                 control.addEventListener('mouseup', (e) => handlePress(label, false, control, e));
                 control.addEventListener('mouseleave', (e) => handlePress(label, false, control, e));
                 
-                // TOUCH Events
+                // TOUCH Events (Crucial for mobile)
                 control.addEventListener('touchstart', (e) => {
                     e.preventDefault(); 
                     handlePress(label, true, control, e);
                 }, { passive: false });
-                control.addEventListener('touchend', (e) => handlePress(label, false, control, e));
-                control.addEventListener('touchcancel', (e) => handlePress(label, false, control, e));
+                control.addEventListener('touchend', (e) => {
+                    e.preventDefault(); // Keep preventDefault on touchend too for consistent behavior
+                    handlePress(label, false, control, e);
+                });
+                control.addEventListener('touchcancel', (e) => {
+                    e.preventDefault();
+                    handlePress(label, false, control, e);
+                });
             });
             
             // Menu Controls 
