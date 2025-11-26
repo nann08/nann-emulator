@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- Updated Viewport for iPhone Full Screen -->
+    <!-- CRUCIAL FOR RESPONSIVENESS: Tells the browser to use the device width and prevent unwanted scaling -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Nann Emulator</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -17,20 +17,26 @@
 
         body {
             font-family: 'Inter', sans-serif;
+            /* FIX: Explicitly remove default browser margins and padding */
+            margin: 0; 
+            padding: 0;
+            
             /* Updated background to a slightly darker gray/blue-gray (#cbd5e1 - Tailwind slate-300) */
             background-color: #cbd5e1;
-            overflow: hidden;
+            
+            /* MANDATORY FOR FULL SCREEN FIT: Sets body to use 100% of viewport height/width */
+            overflow: hidden; /* CRITICAL: Prevents scrollbars from appearing */
             height: 100vh;
             width: 100vw;
             display: flex;
             align-items: center;
             justify-content: center;
-            /* Prevent iOS rubber banding */
+            /* Prevent iOS rubber banding and allow touch to control the app */
             overscroll-behavior: none; 
             touch-action: none;
         }
 
-        /* Container for scaling */
+        /* Container for scaling - this is the element the JS scales */
         #console-wrapper {
             transform-origin: center center;
             transition: transform 0.2s ease-out;
@@ -167,7 +173,7 @@
             position: relative;
         }
 
-        /* --- D-Pad Styles --- (Omitted for brevity, styles are preserved) */
+        /* --- D-Pad Styles --- */
         .dpad {
             position: absolute;
             top: 70px; 
@@ -348,7 +354,7 @@
                 
                 <div class="lcd-screen" id="lcd-screen">
                     <div id="loading-overlay" class="text-white text-center">
-                        <svg class="animate-spin h-5 w-5 text-white inline-block mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <svg class="animate-spin h-5 w-5 text-white inline-block mr-2 -mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
@@ -876,22 +882,25 @@
             window.addEventListener('keyup', handleGlobalKey);
         }
 
-        // --- Initial Setup ---
+        // --- Initial Setup and Scaling Logic ---
         window.onload = function() {
+            // Initialize Firebase and Auth once the document is fully loaded
             initFirebase();
             setupControlListeners();
         };
 
-        // --- Responsive Scaling ---
+        /**
+         * Calculates the scale factor to make the fixed-size console fit the current viewport.
+         */
         function scaleConsole() {
             const wrapper = document.getElementById('console-wrapper');
             if (!wrapper) return;
             
-            const consoleWidth = 440; // GBC width
-            const consoleHeight = 760; // GBC height (new value)
+            const consoleWidth = 440; 
+            const consoleHeight = 760; 
             
-            // Increase the buffer space slightly to guarantee no scrollbars
-            const safeBuffer = 50; 
+            // Buffer space (reduced from 50px to 20px) to maximize size while ensuring no scrollbars appear.
+            const safeBuffer = 20; 
             
             const windowWidth = window.innerWidth;
             const windowHeight = window.innerHeight;
@@ -899,23 +908,22 @@
             const requiredWidth = consoleWidth + safeBuffer;
             const requiredHeight = consoleHeight + safeBuffer;
             
-            let scaleX = 1;
-            let scaleY = 1;
+            let scaleX = windowWidth / requiredWidth;
+            let scaleY = windowHeight / requiredHeight;
             
-            // Calculate scale factors
-            scaleX = Math.min(1, windowWidth / requiredWidth);
-            scaleY = Math.min(1, windowHeight / requiredHeight);
-            
-            const scale = Math.min(scaleX, scaleY);
+            // Use the smaller scale factor to ensure it fits both dimensions
+            // Clamp at 1 to prevent enlarging the console beyond its original size on very large screens
+            const scale = Math.min(1, scaleX, scaleY);
             
             // Apply scale
             wrapper.style.transform = `scale(${scale})`;
         }
 
+        // Recalculate scale on window resize and orientation change
         window.addEventListener('resize', scaleConsole);
         window.addEventListener('orientationchange', scaleConsole);
         
-        // Initial scale calculation
+        // Execute immediately to set the correct scale right away
         scaleConsole();
     </script>
 </body>
