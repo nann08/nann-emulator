@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- iOS Web App Meta Tags for "App-like" feel -->
+    <!-- Viewport for robust mobile scaling -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -18,12 +18,21 @@
             --screen-shadow: #0f380f;
         }
 
+        /* CRITICAL FIX: Ensure HTML and Body use full space and no default margins */
+        html {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overscroll-behavior: none;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #cbd5e1; /* Background behind console */
+            background-color: #cbd5e1;
             overflow: hidden;
-            height: 100vh;
-            height: 100dvh; /* Dynamic viewport height for mobile */
+            /* Use dvh for dynamic height adaptation on mobile browsers */
+            height: 100dvh; 
             width: 100vw;
             display: flex;
             align-items: center;
@@ -35,18 +44,22 @@
         }
 
         #console-wrapper {
+            /* This wrapper is the container we scale */
             transform-origin: center center;
             will-change: transform;
-            /* Flex center to ensure it stays in middle during scaling */
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
         .gbc-body {
+            /* Console's FIXED VIRTUAL dimensions for scaling calculation */
+            --console-width: 440px; 
+            --console-height: 800px; 
+
             background-color: #f8fafc;
-            width: 440px; 
-            height: 800px; /* Taller for mobile layout */
+            width: var(--console-width); 
+            height: var(--console-height);
             border-radius: 20px 20px 60px 20px;
             
             box-shadow: 
@@ -219,11 +232,11 @@
             transition: transform 0.1s, box-shadow 0.1s;
             
             /* Engraved Font Style */
-            color: rgba(0,0,0,0.5); /* Dark color */
+            color: rgba(0,0,0,0.5); 
             font-size: 24px;
             font-weight: 900;
             font-family: sans-serif;
-            text-shadow: 1px 1px 0px rgba(255, 255, 255, 0.15); /* Light shadow on bottom right creates depth */
+            text-shadow: 1px 1px 0px rgba(255, 255, 255, 0.15); 
         }
         .btn-round:active, .btn-round.pressed {
             transform: translateY(4px); 
@@ -281,9 +294,9 @@
         
         /* Key Bindings List Styling */
         #bindings-list {
-            max-height: 70%; /* Allow for scrolling on small screens */
+            max-height: 70%; 
             overflow-y: auto;
-            padding-right: 15px; /* Add space for scrollbar */
+            padding-right: 15px; 
             width: 100%;
             display: flex;
             flex-direction: column;
@@ -330,7 +343,7 @@
 
         .virtual-key-btn {
             padding: 12px 6px;
-            background-color: #3b82f6; /* blue-500 */
+            background-color: #3b82f6; 
             color: white;
             border-radius: 8px;
             font-weight: 700;
@@ -342,7 +355,7 @@
             text-transform: uppercase;
         }
         .virtual-key-btn:active {
-            background-color: #2563eb; /* blue-600 */
+            background-color: #2563eb; 
             transform: translateY(1px);
             box-shadow: none;
         }
@@ -460,7 +473,7 @@
         let auth;
         let userId = null;
 
-        // Default key map updated per user request: B -> d, A -> Space, Start changed to Enter
+        // Default key map 
         let keyMap = {
             'Up': { key: 'w', code: 'KeyW', keyCode: 87 },
             'Down': { key: 's', code: 'KeyS', keyCode: 83 },
@@ -473,7 +486,7 @@
         };
         
         const keyMapStorageKey = `emulator-keymap-${appId}`;
-        let currentMenu = null; // 'keymap', 'upload', or 'keyselect'
+        let currentMenu = null; 
 
         // Predefined virtual keys for mobile selection
         const virtualKeys = [
@@ -496,24 +509,21 @@
             { key: '4', code: 'Digit4', display: '4' },
         ];
         
-        // Key States for maintaining visual/game state
         let virtualKeyStates = {};
-        let isBindingMode = false;
-        let activeBindingLabel = null;
 
         async function initFirebase() {
             const loadingOverlay = document.getElementById('loading-overlay');
             const powerLed = document.getElementById('power-led');
 
+            // CRITICAL FIX: If not in Canvas environment, skip Firebase setup entirely
             if (!inCanvasEnvironment || !firebaseConfig || Object.keys(firebaseConfig).length === 0) {
-                console.warn("Firebase configuration not found. Running in local/non-Canvas mode. Persistence features (keymap saving) will use localStorage only, and the Power LED will be manually activated.");
+                console.warn("Firebase configuration not found. Running in local/deployed mode.");
                 
                 // Manually activate LED and hide overlay for non-Firebase environments
                 powerLed.classList.add('on');
                 loadingOverlay.style.display = 'none';
                 
-                // Fallback to localStorage load
-                loadKeyMap(); 
+                loadKeyMap(); // Still load keymap from local storage
                 return;
             }
 
@@ -563,7 +573,6 @@
 
         function generateBindingRow(label) {
             const mappedKey = keyMap[label];
-            // Format display key: ' ' -> SPACE, single letters are uppercase
             const displayKey = mappedKey ? (mappedKey.key === ' ' ? 'SPACE' : mappedKey.key.toUpperCase()) : 'N/A';
             return `<div class="binding-row"><span class="font-semibold">${label}:</span><span class="binding-key binding-target" data-label="${label}" id="binding-key-${label}">${displayKey}</span></div>`;
         }
@@ -579,7 +588,6 @@
         }
 
         function handleGlobalKey(e) {
-            // If any menu is open, handle ESC and stop propagation
             if (currentMenu !== null && e.type === 'keydown') {
                 if (e.key === "Escape") {
                     if (currentMenu === 'keyselect') {
@@ -594,10 +602,8 @@
                 }
             }
             
-            // If key selection modal is open, ignore physical keyboard presses
             if (currentMenu === 'keyselect') { e.preventDefault(); return; }
 
-            // Handle physical keyboard input for the emulator
             const entry = Object.entries(keyMap).find(([, mappedKey]) => mappedKey.code === e.code || mappedKey.key === e.key.toLowerCase());
 
             if (entry) {
@@ -615,7 +621,6 @@
                         if (label === 'Left' || label === 'Right') dpadArmH?.classList.add('pressed-arm');
                         if (label === 'Up' || label === 'Down') dpadArmV?.classList.add('pressed-arm');
                     } else {
-                        // Only release the arm if no horizontal/vertical keys are currently pressed
                         const isHorizontal = virtualKeyStates['Left'] || virtualKeyStates['Right'];
                         const isVertical = virtualKeyStates['Up'] || virtualKeyStates['Down'];
                         if (!isHorizontal) dpadArmH?.classList.remove('pressed-arm');
@@ -623,7 +628,6 @@
                     }
                 }
                 
-                // General input handling
                 handleVirtualPress(label, isDown);
             } 
         }
@@ -648,7 +652,6 @@
 
         function handlePress(label, isDown, element = null, e = null) {
             if (currentMenu !== null) {
-                // Prevent control input if a menu is open
                 if (e && (e.type === 'touchstart' || e.type === 'mousedown')) e.preventDefault();
                 return;
             }
@@ -691,12 +694,11 @@
                 btn.className = 'virtual-key-btn';
                 btn.textContent = vKey.display;
                 
-                // Get keyCode, prioritizing explicit value or using charCodeAt for letters/digits
                 const keyCode = vKey.keyCode || vKey.key.toUpperCase().charCodeAt(0);
 
                 btn.addEventListener('click', () => {
                     keyMap[label] = { 
-                        key: vKey.key, // key property is used for KeyboardEvent.key
+                        key: vKey.key, 
                         code: vKey.code, 
                         keyCode: keyCode
                     }; 
@@ -711,7 +713,6 @@
             document.getElementById(`binding-key-${activeBindingLabel}`)?.classList.remove('active-binding');
             document.getElementById('key-selection-modal').style.display = 'none';
             activeBindingLabel = null;
-            // Return context to the keymap menu
             currentMenu = 'keymap';
         }
         // ------------------------------------
@@ -758,6 +759,7 @@
                 // 1. INJECT STYLE TO FORCE FIT
                 const fitStyle = `
                     <style>
+                        /* Maximize space for game inside iframe */
                         html, body {
                             margin: 0 !important;
                             padding: 0 !important;
@@ -857,49 +859,51 @@
             window.addEventListener('keydown', handleGlobalKey);
             window.addEventListener('keyup', handleGlobalKey);
         }
-
-        window.onload = function() {
-            initFirebase();
-            setupControlListeners();
-        };
-
+        
+        // --- Responsive Scaling Logic ---
         function scaleConsole() {
             const wrapper = document.getElementById('console-wrapper');
             if (!wrapper) return;
-            
-            // Dimensions of our virtual console
-            const consoleWidth = 440; 
-            const consoleHeight = 800; 
-            
-            // Get available viewport dimensions
-            // Use visualViewport if available (often better on mobile for accurate screen size excluding browser UI)
-            const availableW = window.visualViewport ? window.visualViewport.width : window.innerWidth;
-            const availableH = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-            
-            // Add a safety buffer to ensure the console doesn't touch the screen edges
-            const buffer = 40; 
 
-            const requiredW = consoleWidth + buffer;
-            const requiredH = consoleHeight + buffer;
+            // Read the fixed virtual size from CSS variables
+            const style = getComputedStyle(document.querySelector('.gbc-body'));
+            const consoleWidth = parseFloat(style.getPropertyValue('--console-width')); // 440
+            const consoleHeight = parseFloat(style.getPropertyValue('--console-height')); // 800
             
-            const scaleX = availableW / requiredW;
-            const scaleY = availableH / requiredH;
+            // Get the actual available viewport dimensions
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
             
-            // Use the smaller scale to ensure it fits entirely
-            const scale = Math.min(scaleX, scaleY, 1); // Clamp scale at 1 (don't zoom in)
+            // Buffer space to prevent scrollbars (critical for Vercel/mobile)
+            const safeBuffer = 50; 
+
+            const requiredWidth = consoleWidth + safeBuffer;
+            const requiredHeight = consoleHeight + safeBuffer;
+            
+            // Calculate scale factors
+            const scaleX = windowWidth / requiredWidth;
+            const scaleY = windowHeight / requiredHeight;
+            
+            // Use the smaller scale factor, clamped at 1 (don't zoom beyond actual size)
+            const scale = Math.min(scaleX, scaleY, 1);
             
             wrapper.style.transform = `scale(${scale})`;
         }
         
-        window.addEventListener('resize', scaleConsole);
-        if (window.visualViewport) {
-            window.visualViewport.addEventListener('resize', scaleConsole);
-        }
-        window.addEventListener('orientationchange', scaleConsole);
-        
-        // Initial scale calculation and fallback
-        setTimeout(scaleConsole, 100);
-        scaleConsole();
+        window.onload = function() {
+            initFirebase();
+            setupControlListeners();
+            // Start listening and perform initial scale
+            scaleConsole(); 
+            // Also listen to resize/orientation changes
+            window.addEventListener('resize', scaleConsole);
+            window.addEventListener('orientationchange', scaleConsole);
+            
+            // Use visualViewport resize if available (better on some mobile browsers)
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', scaleConsole);
+            }
+        };
     </script>
 </body>
 </html>
