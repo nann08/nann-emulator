@@ -372,7 +372,7 @@
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        Loading Game...
+                        Loading Emulator...
                     </div>
                     
                     <iframe id="game-iframe" src="about:blank" allow="keyboard; game" referrerpolicy="no-referrer"></iframe>
@@ -382,7 +382,6 @@
                         <h2 class="text-xl font-bold mb-4 text-gray-800">Key Bindings</h2>
                         <div id="bindings-list" class="mb-6"></div>
                         <button id="btn-close-key-map" class="px-6 py-2 bg-indigo-600 text-white rounded-lg shadow-lg hover:bg-indigo-700 transition">Close Menu</button>
-                        <!-- REMOVED: <div class="absolute bottom-5 text-xs text-gray-500">Tap a key to re-bind it.</div> -->
                     </div>
 
                     <!-- Virtual Keypad for Mobile Binding -->
@@ -452,11 +451,13 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        
-        let db, auth;
+        // Check if environment variables exist (Canvas environment)
+        const inCanvasEnvironment = typeof __firebase_config !== 'undefined';
+        const appId = inCanvasEnvironment ? __app_id : 'default-app-id';
+        const firebaseConfig = inCanvasEnvironment ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = inCanvasEnvironment ? __initial_auth_token : null;
+
+        let auth;
         let userId = null;
 
         // Default key map updated per user request: B -> d, A -> Space, Start changed to Enter
@@ -464,17 +465,14 @@
             'Up': { key: 'w', code: 'KeyW', keyCode: 87 },
             'Down': { key: 's', code: 'KeyS', keyCode: 83 },
             'Left': { key: 'a', code: 'KeyA', keyCode: 65 },
-            'Right': { key: 'f', code: 'KeyF', keyCode: 70 }, // Changed default to avoid 'd' conflict
-            'A': { key: ' ', code: 'Space', keyCode: 32 }, // User request
-            'B': { key: 'd', code: 'KeyD', keyCode: 68 }, // User request
-            'Start': { key: 'Enter', code: 'Enter', keyCode: 13 }, // Changed default to avoid ' ' conflict
+            'Right': { key: 'f', code: 'KeyF', keyCode: 70 }, 
+            'A': { key: ' ', code: 'Space', keyCode: 32 }, 
+            'B': { key: 'd', code: 'KeyD', keyCode: 68 }, 
+            'Start': { key: 'Enter', code: 'Enter', keyCode: 13 },
             'Select': { key: 'e', code: 'KeyE', keyCode: 69 },
         };
         
         const keyMapStorageKey = `emulator-keymap-${appId}`;
-        let isBindingMode = false;
-        let activeBindingLabel = null;
-        let virtualKeyStates = {};
         let currentMenu = null; // 'keymap', 'upload', or 'keyselect'
 
         // Predefined virtual keys for mobile selection
@@ -497,9 +495,28 @@
             { key: '3', code: 'Digit3', display: '3' },
             { key: '4', code: 'Digit4', display: '4' },
         ];
-
+        
+        // Key States for maintaining visual/game state
+        let virtualKeyStates = {};
+        let isBindingMode = false;
+        let activeBindingLabel = null;
 
         async function initFirebase() {
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const powerLed = document.getElementById('power-led');
+
+            if (!inCanvasEnvironment || !firebaseConfig || Object.keys(firebaseConfig).length === 0) {
+                console.warn("Firebase configuration not found. Running in local/non-Canvas mode. Persistence features (keymap saving) will use localStorage only, and the Power LED will be manually activated.");
+                
+                // Manually activate LED and hide overlay for non-Firebase environments
+                powerLed.classList.add('on');
+                loadingOverlay.style.display = 'none';
+                
+                // Fallback to localStorage load
+                loadKeyMap(); 
+                return;
+            }
+
             try {
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
@@ -514,19 +531,20 @@
                     if (user) {
                         userId = user.uid;
                         loadKeyMap();
-                        document.getElementById('power-led').classList.add('on');
+                        powerLed.classList.add('on');
+                        // Hide loading overlay after successful auth
                         setTimeout(() => {
-                            document.getElementById('loading-overlay').style.display = 'none';
+                            loadingOverlay.style.display = 'none';
                         }, 500);
                     } else {
                         userId = null;
-                        document.getElementById('power-led').classList.remove('on');
-                        document.getElementById('loading-overlay').style.display = 'flex';
+                        powerLed.classList.remove('on');
+                        loadingOverlay.style.display = 'flex';
                     }
                 });
             } catch (error) {
                 console.error("Firebase Auth Error:", error);
-                document.getElementById('loading-overlay').innerHTML = "Failed to load emulator.";
+                loadingOverlay.innerHTML = "Authentication failed. Cannot load game.";
             }
         }
 
@@ -588,6 +606,7 @@
                 e.preventDefault();
                 e.stopPropagation();
 
+                // D-Pad visual feedback (press the whole arm)
                 if (['Up', 'Down', 'Left', 'Right'].includes(label)) {
                     const dpadArmH = document.querySelector('.dpad-h');
                     const dpadArmV = document.querySelector('.dpad-v');
@@ -596,12 +615,15 @@
                         if (label === 'Left' || label === 'Right') dpadArmH?.classList.add('pressed-arm');
                         if (label === 'Up' || label === 'Down') dpadArmV?.classList.add('pressed-arm');
                     } else {
+                        // Only release the arm if no horizontal/vertical keys are currently pressed
                         const isHorizontal = virtualKeyStates['Left'] || virtualKeyStates['Right'];
                         const isVertical = virtualKeyStates['Up'] || virtualKeyStates['Down'];
                         if (!isHorizontal) dpadArmH?.classList.remove('pressed-arm');
                         if (!isVertical) dpadArmV?.classList.remove('pressed-arm');
                     }
                 }
+                
+                // General input handling
                 handleVirtualPress(label, isDown);
             } 
         }
@@ -626,6 +648,7 @@
 
         function handlePress(label, isDown, element = null, e = null) {
             if (currentMenu !== null) {
+                // Prevent control input if a menu is open
                 if (e && (e.type === 'touchstart' || e.type === 'mousedown')) e.preventDefault();
                 return;
             }
@@ -815,9 +838,11 @@
             const controls = document.querySelectorAll('.dpad-btn, .btn-round, .btn-pill');
             controls.forEach(control => {
                 const label = control.getAttribute('data-label');
+                // Use mousedown/mouseup for desktop/mouse
                 control.addEventListener('mousedown', (e) => handlePress(label, true, control, e));
                 control.addEventListener('mouseup', (e) => handlePress(label, false, control, e));
                 control.addEventListener('mouseleave', (e) => handlePress(label, false, control, e));
+                // Use touch events for mobile
                 control.addEventListener('touchstart', (e) => handlePress(label, true, control, e), { passive: false });
                 control.addEventListener('touchend', (e) => handlePress(label, false, control, e));
                 control.addEventListener('touchcancel', (e) => handlePress(label, false, control, e));
@@ -846,27 +871,33 @@
             const consoleWidth = 440; 
             const consoleHeight = 800; 
             
-            const windowWidth = window.innerWidth;
-            const windowHeight = window.innerHeight;
+            // Get available viewport dimensions
+            // Use visualViewport if available (often better on mobile for accurate screen size excluding browser UI)
+            const availableW = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+            const availableH = window.visualViewport ? window.visualViewport.height : window.innerHeight;
             
-            // Allow a small buffer (e.g., 20px) but prioritize filling the screen height
-            const safeBuffer = windowWidth < 600 ? 0 : 40; 
-            
-            const availableW = windowWidth - safeBuffer;
-            const availableH = windowHeight - safeBuffer;
+            // Add a safety buffer to ensure the console doesn't touch the screen edges
+            const buffer = 40; 
 
-            const scaleX = availableW / consoleWidth;
-            const scaleY = availableH / consoleHeight;
+            const requiredW = consoleWidth + buffer;
+            const requiredH = consoleHeight + buffer;
+            
+            const scaleX = availableW / requiredW;
+            const scaleY = availableH / requiredH;
             
             // Use the smaller scale to ensure it fits entirely
-            const scale = Math.min(scaleX, scaleY);
+            const scale = Math.min(scaleX, scaleY, 1); // Clamp scale at 1 (don't zoom in)
             
             wrapper.style.transform = `scale(${scale})`;
         }
         
         window.addEventListener('resize', scaleConsole);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', scaleConsole);
+        }
         window.addEventListener('orientationchange', scaleConsole);
-        // Using setTimeout to catch layout shifts on mobile load
+        
+        // Initial scale calculation and fallback
         setTimeout(scaleConsole, 100);
         scaleConsole();
     </script>
