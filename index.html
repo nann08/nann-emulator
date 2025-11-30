@@ -2,64 +2,57 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- CRUCIAL FOR RESPONSIVENESS: Tells the browser to use the device width and prevent unwanted scaling -->
+    <!-- iOS Web App Meta Tags for "App-like" feel -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#f8fafc">
+    
     <title>Nann Emulator</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     
     <style>
-        /* Retro Game Boy Color Palette */
         :root {
-            --screen-color: #9bbc0f; /* Iconic pea-green background (Confirmed Green) */
-            --screen-shadow: #0f380f; /* Darker green for shadows/text */
+            --screen-color: #9bbc0f;
+            --screen-shadow: #0f380f;
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            /* FIX: Explicitly remove default browser margins and padding */
-            margin: 0; 
-            padding: 0;
-            
-            /* Updated background to a slightly darker gray/blue-gray (#cbd5e1 - Tailwind slate-300) */
-            background-color: #cbd5e1;
-            
-            /* MANDATORY FOR FULL SCREEN FIT: Sets body to use 100% of viewport height/width */
-            overflow: hidden; /* CRITICAL: Prevents outer scrollbars from appearing */
+            background-color: #cbd5e1; /* Background behind console */
+            overflow: hidden;
             height: 100vh;
+            height: 100dvh; /* Dynamic viewport height for mobile */
             width: 100vw;
             display: flex;
             align-items: center;
             justify-content: center;
-            /* Prevent iOS rubber banding and allow touch to control the app */
             overscroll-behavior: none; 
             touch-action: none;
+            margin: 0;
+            padding: 0;
         }
 
-        /* Container for scaling - this is the element the JS scales */
         #console-wrapper {
             transform-origin: center center;
-            transition: transform 0.2s ease-out;
             will-change: transform;
+            /* Flex center to ensure it stays in middle during scaling */
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        /* The Game Boy Color Body - Base dimensions adjusted for taller mobile screens */
         .gbc-body {
-            /* Updated body color to a soft, slightly off-white (#f8fafc - Tailwind slate-50) */
             background-color: #f8fafc;
             width: 440px; 
-            height: 760px; /* Increased height to better match mobile aspect ratios */
-            border-radius: 15px 15px 70px 15px;
+            height: 800px; /* Taller for mobile layout */
+            border-radius: 20px 20px 60px 20px;
             
-            /* Enhanced realism for the plastic shell texture and 3D bevel */
             box-shadow: 
-                /* Outer shadow for lifting the console */
                 -15px 15px 40px rgba(0,0,0,0.25),
-                /* Top-left light source highlight for a pronounced bevel */
                 inset 10px 10px 25px rgba(255,255,255,0.95),
-                /* Bottom-right darker shadow for depth and roundness */
                 inset -8px -8px 20px rgba(0,0,0,0.15),
-                /* Subtle inner top-left light to define edge */
                 inset 1px 1px 0px rgba(255,255,255,0.7);
             
             position: relative;
@@ -69,22 +62,18 @@
             padding-top: 40px;
         }
 
-        /* The Screen Bezel */
         .gbc-screen-lens {
-            /* Darker bezel color */
-            background-color: #3f3f46; /* Tailwind zinc-700 */
+            background-color: #3f3f46;
             width: 380px;
-            height: 300px;
-            border-radius: 15px 15px 45px 15px;
+            height: 310px;
+            border-radius: 15px 15px 50px 15px;
             padding: 20px 30px;
-            /* Stronger, deeper inset for the lens cavity */
             box-shadow: inset 0px 0px 20px rgba(0,0,0,0.9),
-                        inset 2px 2px 5px rgba(0,0,0,0.6); /* Additional subtle top-left dark inset */
+                        inset 2px 2px 5px rgba(0,0,0,0.6);
             display: flex;
             flex-direction: column;
             align-items: center;
             position: relative;
-            overflow: hidden; /* Ensure anything in the lens area is clipped */
         }
 
         .lens-branding {
@@ -92,26 +81,24 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
         
         .power-led {
             width: 10px;
             height: 10px;
-            background-color: #1c1c1c; /* Darker off state */
+            background-color: #1c1c1c;
             border-radius: 50%;
             box-shadow: inset 1px 1px 2px rgba(0,0,0,0.7);
             transition: background-color 0.2s;
         }
         .power-led.on {
-            /* Changed LED to red/orange matching GBC */
             background-color: #ff3333;
             box-shadow: 0 0 8px #ff3333, inset 0 0 5px rgba(255, 255, 255, 0.7);
         }
 
         .lcd-screen {
-            /* RETRO SCREEN STYLING */
-            background-color: var(--screen-color); /* Pea Green Screen */
+            background-color: var(--screen-color);
             width: 320px;
             height: 240px;
             box-shadow: inset 3px 3px 10px rgba(0,0,0,0.8);
@@ -121,7 +108,6 @@
             justify-content: center;
             position: relative; 
             
-            /* Add Scanlines/Texture Overlay */
             &::before {
                 content: '';
                 position: absolute;
@@ -129,7 +115,6 @@
                 left: 0;
                 width: 100%;
                 height: 100%;
-                /* Light grid pattern for subtle pixel effect */
                 background: 
                     repeating-linear-gradient(to bottom, 
                         rgba(0,0,0,0.1) 0px, 
@@ -137,14 +122,13 @@
                         transparent 1px, 
                         transparent 2px
                     ),
-                    /* Vertical Lines for a finer grid (subtle) */
                     repeating-linear-gradient(to right, 
                         rgba(0,0,0,0.05) 0px, 
                         rgba(0,0,0,0.05) 1px, 
                         transparent 1px, 
                         transparent 2px
                     );
-                pointer-events: none; /* Allows clicks to pass through */
+                pointer-events: none;
                 z-index: 5;
             }
         }
@@ -153,21 +137,18 @@
             width: 100%;
             height: 100%;
             border: none;
-            /* Make iframe background transparent so the pea-green color shows through */
             background-color: transparent; 
-            /* FIX: Ensure the iframe content itself does not create scrollbars */
-            overflow: hidden !important; 
         }
 
         .nann-brand {
             font-family: 'Inter', sans-serif;
             font-style: italic;
             font-weight: 900;
-            /* Purple/Violet */
             color: #7c3aed; 
             font-size: 28px;
             letter-spacing: 1px;
-            margin-top: 15px;
+            margin-top: 20px;
+            margin-bottom: 10px;
         }
 
         .controls-area {
@@ -176,13 +157,12 @@
             position: relative;
         }
 
-        /* --- D-Pad Styles --- */
         .dpad {
             position: absolute;
-            top: 70px; 
+            top: 60px; 
             left: 40px;
-            width: 120px;
-            height: 120px;
+            width: 130px;
+            height: 130px;
         }
         .dpad-cross {
             width: 100%;
@@ -207,26 +187,43 @@
                 inset -2px -2px 4px rgba(0,0,0,0.4),    
                 0 4px 0 #000; 
         }
-        .dpad-h { width: 120px; height: 36px; top: 42px; left: 0; }
-        .dpad-v { width: 36px; height: 120px; left: 42px; top: 0; }
+        .dpad-h { width: 130px; height: 40px; top: 45px; left: 0; }
+        .dpad-v { width: 40px; height: 130px; left: 45px; top: 0; }
         .dpad-center {
-            position: absolute; width: 36px; height: 36px; background-color: #1c1c1c; top: 42px; left: 42px; z-index: 10;
+            position: absolute; width: 40px; height: 40px; background-color: #1c1c1c; top: 45px; left: 45px; z-index: 10;
         }
         .dpad-center::after {
-            content: ''; position: absolute; top: 5px; left: 5px; width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle, #000 0%, #1c1c1c 70%); opacity: 0.9;
+            content: ''; position: absolute; top: 5px; left: 5px; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle, #000 0%, #1c1c1c 70%); opacity: 0.9;
         }
-        .dpad-btn { position: absolute; width: 42px; height: 42px; z-index: 20; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-        .dpad-up { top: 0; left: 39px; } .dpad-down { bottom: 0; left: 39px; } .dpad-left { top: 39px; left: 0; } .dpad-right { top: 39px; right: 0; }
+        .dpad-btn { position: absolute; width: 45px; height: 45px; z-index: 20; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .dpad-up { top: 0; left: 42px; } .dpad-down { bottom: 0; left: 42px; } .dpad-left { top: 42px; left: 0; } .dpad-right { top: 42px; right: 0; }
+
         .action-buttons {
-            position: absolute; top: 70px; right: 30px; width: 140px; height: 70px; transform: rotate(-20deg);
+            position: absolute; top: 60px; right: 30px; width: 150px; height: 80px; transform: rotate(-20deg);
         }
         .btn-round {
-            width: 55px; height: 55px; background-color: #1c1c1c; border-radius: 50%; color: #555; font-weight: bold; font-size: 18px; display: flex; align-items: center; justify-content: center;
+            width: 60px; height: 60px; 
+            background-color: #1c1c1c; 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
             box-shadow: 
                 inset 3px 3px 8px rgba(255,255,255,0.2), 
                 inset -3px -3px 8px rgba(0,0,0,0.5), 
                 0 6px 0 #000; 
-            cursor: pointer; position: absolute; user-select: none; -webkit-tap-highlight-color: transparent; transition: transform 0.1s, box-shadow 0.1s;
+            cursor: pointer; 
+            position: absolute; 
+            user-select: none; 
+            -webkit-tap-highlight-color: transparent; 
+            transition: transform 0.1s, box-shadow 0.1s;
+            
+            /* Engraved Font Style */
+            color: rgba(0,0,0,0.5); /* Dark color */
+            font-size: 24px;
+            font-weight: 900;
+            font-family: sans-serif;
+            text-shadow: 1px 1px 0px rgba(255, 255, 255, 0.15); /* Light shadow on bottom right creates depth */
         }
         .btn-round:active, .btn-round.pressed {
             transform: translateY(4px); 
@@ -235,15 +232,14 @@
                 inset -3px -3px 8px rgba(0,0,0,0.5), 
                 0 2px 0 #000; 
         }
-        .btn-b { bottom: 0; left: 0; } .btn-a { top: 0; right: 0; }
-        .btn-label {
-            position: absolute; bottom: -25px; right: 18px; font-size: 14px; font-weight: bold; color: #7c3aed; transform: rotate(20deg); 
-        }
+        .btn-b { bottom: 0; left: 0; } 
+        .btn-a { top: 0; right: 0; }
+        
         .meta-buttons {
-            position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); display: flex; gap: 25px; 
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); display: flex; gap: 30px; 
         }
         .btn-pill {
-            width: 65px; height: 16px; background-color: #6b7280; border-radius: 12px; transform: rotate(-25deg);
+            width: 70px; height: 18px; background-color: #6b7280; border-radius: 12px; transform: rotate(-25deg);
             box-shadow: 
                 inset 2px 2px 5px rgba(255,255,255,0.3), 
                 inset -2px -2px 5px rgba(0,0,0,0.5),    
@@ -258,16 +254,13 @@
                 0 2px 0 #4b5563; 
         }
         .meta-label {
-            font-size: 11px; color: #7c3aed; text-align: center; margin-top: 8px; transform: rotate(-25deg); font-weight: bold; letter-spacing: 0.5px; user-select: none;
+            font-size: 11px; color: #7c3aed; text-align: center; margin-top: 10px; transform: rotate(-25deg); font-weight: bold; letter-spacing: 0.5px; user-select: none;
         }
-        /* --- End D-Pad Styles --- */
 
         /* Overlay Styles */
-        .menu-ui, #key-binding-menu, #upload-menu { 
+        .menu-ui, #key-binding-menu, #upload-menu, #key-selection-modal { 
             width: 100%; 
             height: 100%; 
-            /* White/Off-white background matching the console shell */
-            background-color: #f8fafc; 
             display: flex; 
             flex-direction: column; 
             align-items: center; 
@@ -277,19 +270,32 @@
             position: absolute; 
             top: 0; 
             left: 0; 
-            z-index: 100; /* Ensure it is always on top */
-            border-radius: 15px; /* Match screen corner rounding */
+            z-index: 100;
+            border-radius: 15px;
+            background-color: rgba(248, 250, 252, 0.95);
         }
-        #key-binding-menu, #upload-menu { 
-            background-color: rgba(248, 250, 252, 0.95); 
+        #key-binding-menu, #upload-menu, #key-selection-modal { 
             display: none; 
             z-index: 200; 
         }
+        
+        /* Key Bindings List Styling */
+        #bindings-list {
+            max-height: 70%; /* Allow for scrolling on small screens */
+            overflow-y: auto;
+            padding-right: 15px; /* Add space for scrollbar */
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
         .binding-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
             width: 300px;
+            max-width: 90%;
             margin: 8px 0;
             padding: 6px 10px;
             border-radius: 8px;
@@ -297,7 +303,7 @@
         }
         .binding-key {
             font-weight: 700;
-            color: #ef4444; /* Red color for keys */
+            color: #ef4444;
             padding: 4px 8px;
             border: 1px solid #999;
             border-radius: 4px;
@@ -316,32 +322,37 @@
             to { opacity: 1.0; }
         }
 
-        /* Styling for the hidden file input */
-        #file-input {
-            opacity: 0;
-            width: 0.1px;
-            height: 0.1px;
-            position: absolute;
-            overflow: hidden;
-            z-index: -1;
+        /* Virtual Keypad Styling */
+        #virtual-keypad {
+            max-height: 70%; 
+            overflow-y: auto;
         }
-        .upload-label {
-            cursor: pointer;
-            padding: 12px 24px;
-            background-color: #4f46e5; /* Tailwind indigo-600 */
+
+        .virtual-key-btn {
+            padding: 12px 6px;
+            background-color: #3b82f6; /* blue-500 */
             color: white;
             border-radius: 8px;
-            font-weight: bold;
-            transition: background-color 0.2s, transform 0.1s;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.1s;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            text-transform: uppercase;
         }
-        .upload-label:hover {
-            background-color: #4338ca; /* Tailwind indigo-700 */
-        }
-        .upload-label:active {
+        .virtual-key-btn:active {
+            background-color: #2563eb; /* blue-600 */
             transform: translateY(1px);
             box-shadow: none;
         }
+
+        #file-input { opacity: 0; width: 0.1px; height: 0.1px; position: absolute; overflow: hidden; z-index: -1; }
+        .upload-label {
+            cursor: pointer; padding: 12px 24px; background-color: #4f46e5; color: white; border-radius: 8px; font-weight: bold; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .upload-label:hover { background-color: #4338ca; }
+        .upload-label:active { transform: translateY(1px); box-shadow: none; }
         
     </style>
 </head>
@@ -357,29 +368,33 @@
                 
                 <div class="lcd-screen" id="lcd-screen">
                     <div id="loading-overlay" class="text-white text-center">
-                        <svg class="animate-spin h-5 w-5 text-white inline-block mr-2 -mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <svg class="animate-spin h-5 w-5 text-white inline-block mr-2 -mt-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                         Loading Game...
                     </div>
                     
-                    <!-- The game will be loaded into this iframe -->
-                    <iframe id="game-iframe" src="about:blank" scrolling="no" allow="keyboard; game; clipboard-read; clipboard-write" referrerpolicy="no-referrer"></iframe>
+                    <iframe id="game-iframe" src="about:blank" allow="keyboard; game" referrerpolicy="no-referrer"></iframe>
                     
-                    <!-- Key Binding Menu Overlay -->
+                    <!-- Key Binding Menu -->
                     <div id="key-binding-menu" class="menu-ui">
                         <h2 class="text-xl font-bold mb-4 text-gray-800">Key Bindings</h2>
-                        <div id="bindings-list" class="mb-6">
-                            <!-- Binding rows inserted here by JavaScript -->
-                        </div>
-                        <button id="btn-close-key-map" class="px-6 py-2 bg-indigo-600 text-white rounded-lg shadow-lg hover:bg-indigo-700 transition">
-                            Close Menu
-                        </button>
-                        <div class="absolute bottom-5 text-xs text-gray-500">Click a key to re-bind it. Press ESC to cancel binding.</div>
+                        <div id="bindings-list" class="mb-6"></div>
+                        <button id="btn-close-key-map" class="px-6 py-2 bg-indigo-600 text-white rounded-lg shadow-lg hover:bg-indigo-700 transition">Close Menu</button>
+                        <!-- REMOVED: <div class="absolute bottom-5 text-xs text-gray-500">Tap a key to re-bind it.</div> -->
                     </div>
 
-                    <!-- Upload Menu Overlay -->
+                    <!-- Virtual Keypad for Mobile Binding -->
+                    <div id="key-selection-modal" class="menu-ui" style="display: none; z-index: 300; background-color: rgba(248, 250, 252, 0.98);">
+                        <h2 class="text-xl font-bold mb-4 text-gray-800">Select New Key for <span id="binding-label-display" class="text-indigo-600"></span></h2>
+                        <div id="virtual-keypad" class="grid grid-cols-4 gap-4 p-4 max-w-sm overflow-y-auto" style="max-height: 70%;">
+                            <!-- Keys injected by script -->
+                        </div>
+                        <button id="btn-cancel-key-select" class="mt-4 px-6 py-2 bg-gray-400 text-white rounded-lg shadow-lg hover:bg-gray-500 transition">Cancel</button>
+                    </div>
+
+                    <!-- Upload Menu -->
                     <div id="upload-menu" class="menu-ui">
                         <h2 class="text-xl font-bold mb-6 text-gray-800">Load Game ROM (HTML)</h2>
                         <input type="file" id="file-input" accept=".html,text/html">
@@ -388,9 +403,7 @@
                             Choose .html File
                         </label>
                         <p id="file-status" class="text-sm text-gray-600 mb-8">No file selected. Only local HTML files are supported.</p>
-                        <button id="btn-close-upload" class="px-6 py-2 bg-gray-400 text-white rounded-lg shadow-lg hover:bg-gray-500 transition">
-                            Back to Game
-                        </button>
+                        <button id="btn-close-upload" class="px-6 py-2 bg-gray-400 text-white rounded-lg shadow-lg hover:bg-gray-500 transition">Back to Game</button>
                     </div>
                     
                 </div>
@@ -399,15 +412,11 @@
             <div class="nann-brand">NANN EMULATOR</div>
 
             <div class="controls-area">
-                
-                <!-- D-Pad Controls -->
                 <div class="dpad">
                     <div class="dpad-cross">
                         <div class="dpad-arm dpad-h"></div>
                         <div class="dpad-arm dpad-v"></div>
                         <div class="dpad-center"></div>
-
-                        <!-- Invisible Click Targets with Touch/Mouse Events -->
                         <div class="dpad-btn dpad-up" data-label="Up"></div>
                         <div class="dpad-btn dpad-down" data-label="Down"></div>
                         <div class="dpad-btn dpad-left" data-label="Left"></div>
@@ -415,19 +424,13 @@
                     </div>
                 </div>
 
-                <!-- A & B Action Buttons -->
                 <div class="action-buttons">
-                    <!-- B Button -->
-                    <div class="btn-round btn-b" id="btn-b" data-label="B">
-                        <div class="btn-label" style="transform: rotate(20deg);">B</div>
-                    </div>
-                    <!-- A Button -->
-                    <div class="btn-round btn-a" id="btn-a" data-label="A">
-                        <div class="btn-label" style="transform: rotate(20deg);">A</div>
-                    </div>
+                    <!-- Engraved B -->
+                    <div class="btn-round btn-b" id="btn-b" data-label="B">B</div>
+                    <!-- Engraved A -->
+                    <div class="btn-round btn-a" id="btn-a" data-label="A">A</div>
                 </div>
 
-                <!-- START & SELECT Buttons -->
                 <div class="meta-buttons">
                     <div class="flex flex-col items-center">
                         <div class="btn-pill" id="btn-select" data-label="Select"></div>
@@ -439,29 +442,13 @@
                     </div>
                 </div>
                 
-                <!-- Menu Buttons -->
-                <button 
-                    id="btn-key-map-menu" 
-                    class="absolute bottom-24 right-5 bg-indigo-600 text-white p-2 rounded-full shadow-lg hover:bg-indigo-700 transition text-xs"
-                    style="transform: rotate(-25deg); width: 80px;"
-                >
-                    KEY MAP
-                </button>
-                <button 
-                    id="btn-load-rom-menu" 
-                    class="absolute bottom-24 left-5 bg-green-500 text-white p-2 rounded-full shadow-lg hover:bg-green-600 transition text-xs"
-                    style="transform: rotate(25deg); width: 80px;"
-                >
-                    LOAD ROM
-                </button>
-
+                <button id="btn-key-map-menu" class="absolute bottom-24 right-5 bg-indigo-600 text-white p-2 rounded-full shadow-lg hover:bg-indigo-700 transition text-xs" style="transform: rotate(-25deg); width: 80px;">KEY MAP</button>
+                <button id="btn-load-rom-menu" class="absolute bottom-24 left-5 bg-green-500 text-white p-2 rounded-full shadow-lg hover:bg-green-600 transition text-xs" style="transform: rotate(25deg); width: 80px;">LOAD ROM</button>
             </div>
-
         </div>
     </div>
     
     <script type="module">
-        // Firebase Imports (required for Canvas environment)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
@@ -472,32 +459,51 @@
         let db, auth;
         let userId = null;
 
-        // Key Mappings (UPDATED TO USER PREFERENCES)
+        // Default key map updated per user request: B -> d, A -> Space, Start changed to Enter
         let keyMap = {
             'Up': { key: 'w', code: 'KeyW', keyCode: 87 },
             'Down': { key: 's', code: 'KeyS', keyCode: 83 },
             'Left': { key: 'a', code: 'KeyA', keyCode: 65 },
-            'Right': { key: 'l', code: 'KeyL', keyCode: 76 }, // Moved from 'd' to 'l'
-            'A': { key: ' ', code: 'Space', keyCode: 32 },   // Changed to 'Space'
-            'B': { key: 'd', code: 'KeyD', keyCode: 68 },     // Changed to 'd'
-            'Start': { key: 'Enter', code: 'Enter', keyCode: 13 }, // Moved from 'Space' to 'Enter'
+            'Right': { key: 'f', code: 'KeyF', keyCode: 70 }, // Changed default to avoid 'd' conflict
+            'A': { key: ' ', code: 'Space', keyCode: 32 }, // User request
+            'B': { key: 'd', code: 'KeyD', keyCode: 68 }, // User request
+            'Start': { key: 'Enter', code: 'Enter', keyCode: 13 }, // Changed default to avoid ' ' conflict
             'Select': { key: 'e', code: 'KeyE', keyCode: 69 },
         };
         
         const keyMapStorageKey = `emulator-keymap-${appId}`;
         let isBindingMode = false;
         let activeBindingLabel = null;
-        let virtualKeyStates = {}; // Track the pressed state of virtual buttons
-        let currentMenu = null; // Tracks which menu is open ('keymap', 'upload', or null)
+        let virtualKeyStates = {};
+        let currentMenu = null; // 'keymap', 'upload', or 'keyselect'
 
-        // --- Initialization and Utility Functions ---
+        // Predefined virtual keys for mobile selection
+        const virtualKeys = [
+            { key: 'w', code: 'KeyW', display: 'W' },
+            { key: 'a', code: 'KeyA', display: 'A' },
+            { key: 's', code: 'KeyS', display: 'S' },
+            { key: 'd', code: 'KeyD', display: 'D' },
+            { key: ' ', code: 'Space', display: 'SPACE', keyCode: 32 },
+            { key: 'Enter', code: 'Enter', display: 'ENTER', keyCode: 13 },
+            { key: 'j', code: 'KeyJ', display: 'J' },
+            { key: 'k', code: 'KeyK', display: 'K' },
+            { key: 'l', code: 'KeyL', display: 'L' },
+            { key: 'x', code: 'KeyX', display: 'X' },
+            { key: 'z', code: 'KeyZ', display: 'Z' },
+            { key: 'f', code: 'KeyF', display: 'F' },
+            { key: 'e', code: 'KeyE', display: 'E' },
+            { key: '1', code: 'Digit1', display: '1' },
+            { key: '2', code: 'Digit2', display: '2' },
+            { key: '3', code: 'Digit3', display: '3' },
+            { key: '4', code: 'Digit4', display: '4' },
+        ];
+
 
         async function initFirebase() {
             try {
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 
-                // Sign in with custom token or anonymously
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
@@ -509,8 +515,7 @@
                         userId = user.uid;
                         loadKeyMap();
                         document.getElementById('power-led').classList.add('on');
-                        // Hide loading overlay only after auth completes
-                        setTimeout(() => { // Small delay for visual effect
+                        setTimeout(() => {
                             document.getElementById('loading-overlay').style.display = 'none';
                         }, 500);
                     } else {
@@ -520,20 +525,15 @@
                     }
                 });
             } catch (error) {
-                console.error("Firebase Initialization/Auth Error:", error);
-                document.getElementById('loading-overlay').innerHTML = "Failed to load emulator. Check console for details.";
-                document.getElementById('power-led').classList.remove('on');
+                console.error("Firebase Auth Error:", error);
+                document.getElementById('loading-overlay').innerHTML = "Failed to load emulator.";
             }
         }
 
         function loadKeyMap() {
             const storedMap = localStorage.getItem(keyMapStorageKey);
             if (storedMap) {
-                try {
-                    keyMap = JSON.parse(storedMap);
-                } catch (e) {
-                    console.error("Failed to parse stored key map:", e);
-                }
+                try { keyMap = JSON.parse(storedMap); } catch (e) { console.error(e); }
             }
             renderBindings();
         }
@@ -545,211 +545,170 @@
 
         function generateBindingRow(label) {
             const mappedKey = keyMap[label];
-            const displayKey = mappedKey ? (mappedKey.key === ' ' ? 'Space' : mappedKey.key.toUpperCase()) : 'N/A';
-            
-            return `
-                <div class="binding-row">
-                    <span class="font-semibold">${label}:</span>
-                    <span 
-                        class="binding-key binding-target" 
-                        data-label="${label}" 
-                        id="binding-key-${label}"
-                    >
-                        ${displayKey}
-                    </span>
-                </div>
-            `;
+            // Format display key: ' ' -> SPACE, single letters are uppercase
+            const displayKey = mappedKey ? (mappedKey.key === ' ' ? 'SPACE' : mappedKey.key.toUpperCase()) : 'N/A';
+            return `<div class="binding-row"><span class="font-semibold">${label}:</span><span class="binding-key binding-target" data-label="${label}" id="binding-key-${label}">${displayKey}</span></div>`;
         }
 
         function renderBindings() {
             const bindingsList = document.getElementById('bindings-list');
             if (bindingsList) {
                 bindingsList.innerHTML = Object.keys(keyMap).map(generateBindingRow).join('');
-                
-                // Attach click listeners to the new spans
                 bindingsList.querySelectorAll('.binding-target').forEach(span => {
-                    const label = span.getAttribute('data-label');
-                    span.addEventListener('click', () => startKeyBinding(label));
+                    span.addEventListener('click', () => startKeyBinding(span.getAttribute('data-label')));
                 });
             }
         }
 
-        // --- Key Event Handlers ---
-
         function handleGlobalKey(e) {
-            
-            // 1. Menu and Binding Mode Check
+            // If any menu is open, handle ESC and stop propagation
             if (currentMenu !== null && e.type === 'keydown') {
                 if (e.key === "Escape") {
-                    if (currentMenu === 'keymap') toggleKeyBindingMenu();
-                    else if (currentMenu === 'upload') toggleUploadMenu();
-                    
-                    if (isBindingMode) {
-                        // Cancel current binding on ESC
-                        document.getElementById(`binding-key-${activeBindingLabel}`)?.classList.remove('active-binding');
-                        renderBindings(); 
-                        activeBindingLabel = null;
-                        isBindingMode = false;
+                    if (currentMenu === 'keyselect') {
+                        hideKeySelection();
+                    } else if (currentMenu === 'keymap') {
+                        toggleKeyBindingMenu();
+                    } else if (currentMenu === 'upload') {
+                        toggleUploadMenu();
                     }
                     e.preventDefault();
-                    e.stopPropagation();
                     return;
                 }
             }
             
-            // Check if we are currently listening for a new binding key
-            if (isBindingMode && e.type === 'keydown') {
-                handleBindingKey(e);
-                // If binding mode consumed the key press (and activeBindingLabel is now null), we stop here.
-                if (activeBindingLabel === null) { 
-                    e.preventDefault();
-                    return; 
-                }
-            }
-            
-            // If in binding mode, suppress keypress
-            if (isBindingMode) {
-                 e.preventDefault();
-                 e.stopPropagation();
-                 return;
-            }
+            // If key selection modal is open, ignore physical keyboard presses
+            if (currentMenu === 'keyselect') { e.preventDefault(); return; }
 
-            // If a menu is open, block game input
-            if (currentMenu !== null) {
-                return;
-            }
-
-            // --- Game Input Handling ---
-            
-            const entry = Object.entries(keyMap).find(([, mappedKey]) => 
-                mappedKey.code === e.code || mappedKey.key === e.key
-            );
+            // Handle physical keyboard input for the emulator
+            const entry = Object.entries(keyMap).find(([, mappedKey]) => mappedKey.code === e.code || mappedKey.key === e.key.toLowerCase());
 
             if (entry) {
                 const label = entry[0];
                 const isDown = e.type === 'keydown';
-                
                 e.preventDefault();
                 e.stopPropagation();
 
-                // Send the key message and update state/visuals via unified function
+                if (['Up', 'Down', 'Left', 'Right'].includes(label)) {
+                    const dpadArmH = document.querySelector('.dpad-h');
+                    const dpadArmV = document.querySelector('.dpad-v');
+                    handleVirtualPress(label, isDown, false); 
+                    if (isDown) {
+                        if (label === 'Left' || label === 'Right') dpadArmH?.classList.add('pressed-arm');
+                        if (label === 'Up' || label === 'Down') dpadArmV?.classList.add('pressed-arm');
+                    } else {
+                        const isHorizontal = virtualKeyStates['Left'] || virtualKeyStates['Right'];
+                        const isVertical = virtualKeyStates['Up'] || virtualKeyStates['Down'];
+                        if (!isHorizontal) dpadArmH?.classList.remove('pressed-arm');
+                        if (!isVertical) dpadArmV?.classList.remove('pressed-arm');
+                    }
+                }
                 handleVirtualPress(label, isDown);
             } 
         }
 
-        // --- Visual & Virtual Press Logic ---
-
         function handleVisualPress(element, isDown) {
             if (element) {
-                 if (isDown) {
-                    element.classList.add('pressed');
-                } else {
-                    element.classList.remove('pressed');
-                }
+                 if (isDown) element.classList.add('pressed');
+                 else element.classList.remove('pressed');
             }
         }
         
         function handleVirtualPress(label, isDown, shouldSendMessage = true) {
-            // FIX: D-Pad visual handling moved here to apply to all inputs (keyboard, mouse, touch)
-            if (['Up', 'Down', 'Left', 'Right'].includes(label)) {
-                const dpadArmH = document.querySelector('.dpad-h');
-                const dpadArmV = document.querySelector('.dpad-v');
-                
-                // Track the new state before applying press logic
-                virtualKeyStates[label] = isDown; 
-
-                if (isDown) {
-                    if (label === 'Left' || label === 'Right') dpadArmH?.classList.add('pressed-arm');
-                    if (label === 'Up' || label === 'Down') dpadArmV?.classList.add('pressed-arm');
-                } else {
-                    const isHorizontalPressed = virtualKeyStates['Left'] || virtualKeyStates['Right'];
-                    const isVerticalPressed = virtualKeyStates['Up'] || virtualKeyStates['Down'];
-
-                    if (!isHorizontalPressed) dpadArmH?.classList.remove('pressed-arm');
-                    if (!isVerticalPressed) dpadArmV?.classList.remove('pressed-arm');
-                }
-            }
-            // End D-Pad visual handling
-
             const currentState = virtualKeyStates[label] || false;
-
             if (isDown && !currentState) {
                 virtualKeyStates[label] = true;
-                if (shouldSendMessage) sendKey(label, true); // Send keydown
+                if (shouldSendMessage) sendKey(label, true);
             } else if (!isDown && currentState) {
                 virtualKeyStates[label] = false;
-                if (shouldSendMessage) sendKey(label, false); // Send keyup
+                if (shouldSendMessage) sendKey(label, false);
             }
         }
 
         function handlePress(label, isDown, element = null, e = null) {
-            
-            // Check if any menu is open (must block input)
             if (currentMenu !== null) {
-                // Prevent default scrolling on touch even if controls are disabled
-                if (e && (e.type === 'touchstart' || e.type === 'mousedown')) {
-                    e.preventDefault();
-                }
-                return; 
+                if (e && (e.type === 'touchstart' || e.type === 'mousedown')) e.preventDefault();
+                return;
             }
-            
-            // Prevent default behavior (like scrolling/text selection) for game controls
-            if (e && (e.type === 'touchstart' || e.type === 'mousedown')) {
-                e.preventDefault();
-            }
-
-            // Update visual state for A/B/Start/Select buttons
-            handleVisualPress(element, isDown); 
-            // Update virtual state and send message (this also handles D-pad visuals)
+            if (e && (e.type === 'touchstart' || e.type === 'mousedown')) e.preventDefault();
+            handleVisualPress(element, isDown);
             handleVirtualPress(label, isDown);
         }
 
         function sendKey(label, isDown) {
             const iframe = document.getElementById('game-iframe');
             if (!iframe || !iframe.contentWindow || currentMenu !== null) return;
-            
             const mappedKey = keyMap[label];
             if (!mappedKey) return;
-
-            const eventType = isDown ? 'keydown' : 'keyup';
-            
-            // Post the message to the iframe
             iframe.contentWindow.postMessage({
-                type: eventType,
+                type: isDown ? 'keydown' : 'keyup',
                 key: mappedKey.key,
                 code: mappedKey.code,
                 keyCode: mappedKey.keyCode
             }, '*');
         }
 
-        // --- Menu Logic ---
+        // --- Key Binding Logic for Mobile ---
         
-        function toggleKeyBindingMenu() {
-            if (currentMenu === 'upload') return; 
-            const menu = document.getElementById('key-binding-menu');
+        function startKeyBinding(label) {
+            activeBindingLabel = label;
+            document.getElementById(`binding-key-${label}`).classList.add('active-binding');
+            showKeySelection(label);
+        }
+
+        function showKeySelection(label) {
+            currentMenu = 'keyselect';
+            document.getElementById('key-selection-modal').style.display = 'flex';
+            document.getElementById('binding-label-display').textContent = label;
             
+            const keypad = document.getElementById('virtual-keypad');
+            keypad.innerHTML = ''; 
+
+            virtualKeys.forEach(vKey => {
+                const btn = document.createElement('div');
+                btn.className = 'virtual-key-btn';
+                btn.textContent = vKey.display;
+                
+                // Get keyCode, prioritizing explicit value or using charCodeAt for letters/digits
+                const keyCode = vKey.keyCode || vKey.key.toUpperCase().charCodeAt(0);
+
+                btn.addEventListener('click', () => {
+                    keyMap[label] = { 
+                        key: vKey.key, // key property is used for KeyboardEvent.key
+                        code: vKey.code, 
+                        keyCode: keyCode
+                    }; 
+                    saveKeyMap();
+                    hideKeySelection();
+                });
+                keypad.appendChild(btn);
+            });
+        }
+        
+        function hideKeySelection() {
+            document.getElementById(`binding-key-${activeBindingLabel}`)?.classList.remove('active-binding');
+            document.getElementById('key-selection-modal').style.display = 'none';
+            activeBindingLabel = null;
+            // Return context to the keymap menu
+            currentMenu = 'keymap';
+        }
+        // ------------------------------------
+
+        function toggleKeyBindingMenu() {
+            if (currentMenu === 'upload') return;
+            const menu = document.getElementById('key-binding-menu');
             if (currentMenu === 'keymap') {
                 currentMenu = null;
                 menu.style.display = 'none';
-
-                // If closing, clear active binding state
-                if (activeBindingLabel) {
-                     document.getElementById(`binding-key-${activeBindingLabel}`)?.classList.remove('active-binding');
-                     activeBindingLabel = null;
-                     isBindingMode = false;
-                }
             } else {
                 currentMenu = 'keymap';
                 menu.style.display = 'flex';
                 renderBindings(); 
-                isBindingMode = false; // Ensure binding mode is off when just opening the menu
             }
         }
 
         function toggleUploadMenu() {
-            if (currentMenu === 'keymap') return; 
+            if (currentMenu === 'keymap') return;
             const menu = document.getElementById('upload-menu');
-
             if (currentMenu === 'upload') {
                 currentMenu = null;
                 menu.style.display = 'none';
@@ -759,200 +718,156 @@
             }
         }
         
-        // --- File Upload Logic (Integrated from index (4).html concept) ---
-
         function handleFileUpload(event) {
             const file = event.target.files[0];
             const fileStatus = document.getElementById('file-status');
             const iframe = document.getElementById('game-iframe');
 
-            if (!file) {
-                fileStatus.textContent = "No file selected.";
-                return;
-            }
-
-            if (file.type !== 'text/html' && !file.name.endsWith('.html')) {
-                fileStatus.textContent = "Error: Please select a valid HTML file.";
-                return;
-            }
+            if (!file) { fileStatus.textContent = "No file selected."; return; }
+            if (file.type !== 'text/html' && !file.name.endsWith('.html')) { fileStatus.textContent = "Error: Please select a valid HTML file."; return; }
 
             fileStatus.textContent = `Loading ${file.name}...`;
-
             const reader = new FileReader();
 
             reader.onload = function(e) {
-                const htmlContent = e.target.result;
+                let htmlContent = e.target.result;
+
+                // 1. INJECT STYLE TO FORCE FIT
+                const fitStyle = `
+                    <style>
+                        html, body {
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            width: 100vw !important;
+                            height: 100vh !important;
+                            overflow: hidden !important;
+                            background-color: transparent !important;
+                            display: flex !important;
+                            justify-content: center !important;
+                            align-items: center !important;
+                        }
+                        /* Target common canvas or game container elements */
+                        canvas, #game, #canvas {
+                            max-width: 100% !important;
+                            max-height: 100% !important;
+                            object-fit: contain !important;
+                            margin: auto !important;
+                        }
+                    </style>
+                `;
+
+                // 2. INJECT INPUT BRIDGE
+                const bridgeScript = `
+                    <script>
+                        window.addEventListener('message', function(e) {
+                            if (e.data.type === 'keydown' || e.data.type === 'keyup') {
+                                var event = new KeyboardEvent(e.data.type, {
+                                    key: e.data.key,
+                                    code: e.data.code,
+                                    keyCode: e.data.keyCode,
+                                    which: e.data.keyCode,
+                                    bubbles: true,
+                                    cancelable: true,
+                                    view: window
+                                });
+                                document.dispatchEvent(event);
+                                window.dispatchEvent(event);
+                            }
+                        });
+                    <\/script>
+                `;
+
+                // Combine injection
+                if (htmlContent.includes('</head>')) {
+                    htmlContent = htmlContent.replace('</head>', fitStyle + '</head>');
+                } else {
+                    htmlContent = fitStyle + htmlContent;
+                }
                 
-                // Use a Blob URL to load the content into the iframe's source.
+                if (htmlContent.includes('</body>')) {
+                    htmlContent = htmlContent.replace('</body>', bridgeScript + '</body>');
+                } else {
+                    htmlContent += bridgeScript;
+                }
+
                 try {
                     const blob = new Blob([htmlContent], { type: 'text/html' });
                     const blobUrl = URL.createObjectURL(blob);
-                    iframe.src = blobUrl;
                     
-                    // Cleanup old URL object when the iframe loads the new one
                     iframe.onload = () => {
-                         // Revoke the old URL after the new content has loaded
-                         if (iframe.dataset.blobUrl) {
-                            URL.revokeObjectURL(iframe.dataset.blobUrl);
-                         }
+                         if (iframe.dataset.blobUrl) URL.revokeObjectURL(iframe.dataset.blobUrl);
                          iframe.dataset.blobUrl = blobUrl;
                          fileStatus.textContent = `Game loaded: ${file.name}`;
-                         toggleUploadMenu(); // Automatically close the menu on load
-                         iframe.onload = null; // Remove temporary onload handler
+                         toggleUploadMenu(); 
+                         iframe.onload = null;
+                         iframe.contentWindow.focus();
                     };
-
+                    iframe.src = blobUrl;
                 } catch (error) {
-                    console.error("Failed to load content into iframe:", error);
+                    console.error("Failed to load:", error);
                     fileStatus.textContent = `Error loading file: ${file.name}`;
                 }
             };
-
-            reader.onerror = function() {
-                fileStatus.textContent = "Error reading file.";
-            };
-
             reader.readAsText(file);
         }
 
-        // --- Key Binding Sub-Logic ---
-        
-        function startKeyBinding(label) {
-            // FIX: Set binding mode here, only when a target is clicked
-            isBindingMode = true; 
-            if (!isBindingMode) return;
-
-            // Clear previous active binding highlight
-            if (activeBindingLabel) {
-                document.getElementById(`binding-key-${activeBindingLabel}`)?.classList.remove('active-binding');
-            }
-
-            activeBindingLabel = label;
-            document.getElementById(`binding-key-${label}`).classList.add('active-binding');
-            
-            // Display message to the user
-            document.getElementById(`binding-key-${label}`).textContent = 'PRESS KEY...';
-        }
-        
-        function handleBindingKey(e) {
-            if (!isBindingMode || !activeBindingLabel) return;
-            
-            e.preventDefault();
-            e.stopPropagation();
-
-            // Ignore modifier keys that aren't useful for binding
-            if (e.key === "Escape" || e.code.startsWith('Meta') || e.code.startsWith('Control') || e.code.startsWith('Shift') || e.code.startsWith('Alt')) {
-                return;
-            }
-            
-            // Update the keyMap with the new binding
-            let keyToUse = e.key;
-            let codeToUse = e.code;
-            let keyCodeToUse = e.keyCode;
-
-            // Normalize Enter/Space key values
-            if (codeToUse === 'Space') { keyToUse = ' '; } 
-            if (codeToUse === 'Enter') { keyToUse = 'Enter'; }
-
-
-            keyMap[activeBindingLabel] = {
-                key: keyToUse.toLowerCase(), 
-                code: codeToUse,
-                keyCode: keyCodeToUse
-            };
-            
-            // Save and update UI
-            saveKeyMap(); 
-            document.getElementById(`binding-key-${activeBindingLabel}`)?.classList.remove('active-binding');
-            activeBindingLabel = null;
-            isBindingMode = false; // Binding complete, exit binding mode
-        }
-
-        // --- Event Listeners and Setup ---
-
         function setupControlListeners() {
-            // Include virtual controls (D-pad targets, A/B/Start/Select)
             const controls = document.querySelectorAll('.dpad-btn, .btn-round, .btn-pill');
-            
             controls.forEach(control => {
                 const label = control.getAttribute('data-label');
-                
-                // MOUSE Events
                 control.addEventListener('mousedown', (e) => handlePress(label, true, control, e));
                 control.addEventListener('mouseup', (e) => handlePress(label, false, control, e));
                 control.addEventListener('mouseleave', (e) => handlePress(label, false, control, e));
-                
-                // TOUCH Events (Crucial for mobile)
-                control.addEventListener('touchstart', (e) => {
-                    e.preventDefault(); 
-                    handlePress(label, true, control, e);
-                }, { passive: false });
-                control.addEventListener('touchend', (e) => {
-                    e.preventDefault(); // Keep preventDefault on touchend too for consistent behavior
-                    handlePress(label, false, control, e);
-                });
-                control.addEventListener('touchcancel', (e) => {
-                    e.preventDefault();
-                    handlePress(label, false, control, e);
-                });
+                control.addEventListener('touchstart', (e) => handlePress(label, true, control, e), { passive: false });
+                control.addEventListener('touchend', (e) => handlePress(label, false, control, e));
+                control.addEventListener('touchcancel', (e) => handlePress(label, false, control, e));
             });
-            
-            // Menu Controls 
             document.getElementById('btn-key-map-menu')?.addEventListener('click', toggleKeyBindingMenu);
             document.getElementById('btn-close-key-map')?.addEventListener('click', toggleKeyBindingMenu);
-            
             document.getElementById('btn-load-rom-menu')?.addEventListener('click', toggleUploadMenu);
             document.getElementById('btn-close-upload')?.addEventListener('click', toggleUploadMenu);
-            
-            // File Input Listener
             document.getElementById('file-input')?.addEventListener('change', handleFileUpload);
-            
-            // Global keydown/keyup listeners for actual keyboard input
+            document.getElementById('btn-cancel-key-select')?.addEventListener('click', hideKeySelection);
+
             window.addEventListener('keydown', handleGlobalKey);
             window.addEventListener('keyup', handleGlobalKey);
         }
 
-        // --- Initial Setup and Scaling Logic ---
         window.onload = function() {
-            // Initialize Firebase and Auth once the document is fully loaded
             initFirebase();
             setupControlListeners();
         };
 
-        /**
-         * Calculates the scale factor to make the fixed-size console fit the current viewport.
-         */
         function scaleConsole() {
             const wrapper = document.getElementById('console-wrapper');
             if (!wrapper) return;
             
+            // Dimensions of our virtual console
             const consoleWidth = 440; 
-            const consoleHeight = 760; 
-            
-            // Buffer space (reduced from 50px to 20px) to maximize size while ensuring no scrollbars appear.
-            const safeBuffer = 20; 
+            const consoleHeight = 800; 
             
             const windowWidth = window.innerWidth;
             const windowHeight = window.innerHeight;
             
-            const requiredWidth = consoleWidth + safeBuffer;
-            const requiredHeight = consoleHeight + safeBuffer;
+            // Allow a small buffer (e.g., 20px) but prioritize filling the screen height
+            const safeBuffer = windowWidth < 600 ? 0 : 40; 
             
-            let scaleX = windowWidth / requiredWidth;
-            let scaleY = windowHeight / requiredHeight;
+            const availableW = windowWidth - safeBuffer;
+            const availableH = windowHeight - safeBuffer;
+
+            const scaleX = availableW / consoleWidth;
+            const scaleY = availableH / consoleHeight;
             
-            // Use the smaller scale factor to ensure it fits both dimensions
-            // Clamp at 1 to prevent enlarging the console beyond its original size on very large screens
-            const scale = Math.min(1, scaleX, scaleY);
+            // Use the smaller scale to ensure it fits entirely
+            const scale = Math.min(scaleX, scaleY);
             
-            // Apply scale
             wrapper.style.transform = `scale(${scale})`;
         }
-
-        // Recalculate scale on window resize and orientation change
+        
         window.addEventListener('resize', scaleConsole);
         window.addEventListener('orientationchange', scaleConsole);
-        
-        // Execute immediately to set the correct scale right away
+        // Using setTimeout to catch layout shifts on mobile load
+        setTimeout(scaleConsole, 100);
         scaleConsole();
     </script>
 </body>
