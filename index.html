@@ -22,6 +22,13 @@
             --screen-color: #9bbc0f;
             --screen-shadow: #0f380f;
         }
+        
+        /* Power LED Animation (NEW) */
+        @keyframes led-glow {
+            0% { box-shadow: 0 0 5px #990000, 0 0 20px rgba(255, 0, 0, 0.4); opacity: 0.8; }
+            50% { box-shadow: 0 0 10px #ff0000, 0 0 30px rgba(255, 0, 0, 0.8); opacity: 1; }
+            100% { box-shadow: 0 0 5px #990000, 0 0 20px rgba(255, 0, 0, 0.4); opacity: 0.8; }
+        }
 
         /* CRITICAL FIX: Ensure HTML and Body use full space and no default margins */
         html {
@@ -105,14 +112,15 @@
         .power-led {
             width: 10px;
             height: 10px;
-            background-color: #1c1c1c;
+            background-color: #1c1c1c; /* Off state */
             border-radius: 50%;
             box-shadow: inset 1px 1px 2px rgba(0,0,0,0.7);
             transition: background-color 0.2s;
         }
         .power-led.on {
-            background-color: #ff3333;
+            background-color: #ff0000; /* Red when on */
             box-shadow: 0 0 8px #ff3333, inset 0 0 5px rgba(255, 255, 255, 0.7);
+            animation: led-glow 1.5s infinite alternate ease-in-out;
         }
 
         .lcd-screen {
@@ -380,7 +388,8 @@
             
             <div class="gbc-screen-lens">
                 <div class="lens-branding">
-                    <div class="power-led" id="power-led"></div>
+                    <!-- Power LED starts OFF by default -->
+                    <div class="power-led" id="power-led"></div> 
                     <div class="text-xs text-zinc-400 font-bold tracking-wider">BATTERY</div>
                 </div>
                 
@@ -519,14 +528,13 @@
 
         async function initFirebase() {
             const loadingOverlay = document.getElementById('loading-overlay');
-            const powerLed = document.getElementById('power-led');
-
+            // The powerLed should NOT be controlled here. It should be controlled by the game upload.
+            
             // CRITICAL FIX: If not in Canvas environment, skip Firebase setup entirely
             if (!inCanvasEnvironment || !firebaseConfig || Object.keys(firebaseConfig).length === 0) {
                 console.warn("Firebase configuration not found. Running in local/deployed mode.");
                 
-                // Manually activate LED and hide overlay for non-Firebase environments
-                powerLed.classList.add('on');
+                // Hide overlay in non-Firebase environments
                 loadingOverlay.style.display = 'none';
                 
                 loadKeyMap(); // Still load keymap from local storage
@@ -547,14 +555,12 @@
                     if (user) {
                         userId = user.uid;
                         loadKeyMap();
-                        powerLed.classList.add('on');
                         // Hide loading overlay after successful auth
                         setTimeout(() => {
                             loadingOverlay.style.display = 'none';
                         }, 500);
                     } else {
                         userId = null;
-                        powerLed.classList.remove('on');
                         loadingOverlay.style.display = 'flex';
                     }
                 });
@@ -767,6 +773,10 @@
             const file = event.target.files[0];
             const fileStatus = document.getElementById('file-status');
             const iframe = document.getElementById('game-iframe');
+            const powerLed = document.getElementById('power-led'); // Get LED element
+
+            // Turn off LED immediately on upload attempt
+            powerLed.classList.remove('on'); 
 
             if (!file) { fileStatus.textContent = "No file selected."; return; }
             if (file.type !== 'text/html' && !file.name.endsWith('.html')) { fileStatus.textContent = "Error: Please select a valid HTML file."; return; }
@@ -847,6 +857,9 @@
                          toggleUploadMenu(); 
                          iframe.onload = null;
                          iframe.contentWindow.focus();
+                         
+                         // CRITICAL FIX: Turn LED ON after successful load
+                         powerLed.classList.add('on');
                     };
                     iframe.src = blobUrl;
                 } catch (error) {
