@@ -13,6 +13,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     
     <style>
+        /* Global box model reset for perfect sizing */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
         :root {
             --screen-color: #9bbc0f;
             --screen-shadow: #0f380f;
@@ -31,8 +36,8 @@
             font-family: 'Inter', sans-serif;
             background-color: #cbd5e1;
             overflow: hidden;
-            /* Use dvh for dynamic height adaptation on mobile browsers */
-            height: 100dvh; 
+            /* Reverting to 100vh for desktop stability */
+            height: 100vh; 
             width: 100vw;
             display: flex;
             align-items: center;
@@ -55,7 +60,7 @@
         .gbc-body {
             /* Console's FIXED VIRTUAL dimensions for scaling calculation */
             --console-width: 440px; 
-            --console-height: 800px; 
+            --console-height: 760px; /* Reduced height for better fit on laptops */
 
             background-color: #f8fafc;
             width: var(--console-width); 
@@ -487,6 +492,7 @@
         
         const keyMapStorageKey = `emulator-keymap-${appId}`;
         let currentMenu = null; 
+        let activeBindingLabel = null;
 
         // Predefined virtual keys for mobile selection
         const virtualKeys = [
@@ -602,7 +608,12 @@
                 }
             }
             
-            if (currentMenu === 'keyselect') { e.preventDefault(); return; }
+            // Prevent input to game when a menu is open
+            if (currentMenu !== null) { 
+                e.preventDefault(); 
+                e.stopPropagation(); 
+                return; 
+            }
 
             const entry = Object.entries(keyMap).find(([, mappedKey]) => mappedKey.code === e.code || mappedKey.key === e.key.toLowerCase());
 
@@ -616,11 +627,15 @@
                 if (['Up', 'Down', 'Left', 'Right'].includes(label)) {
                     const dpadArmH = document.querySelector('.dpad-h');
                     const dpadArmV = document.querySelector('.dpad-v');
+                    
+                    // Handle virtual press first
                     handleVirtualPress(label, isDown, false); 
+                    
                     if (isDown) {
                         if (label === 'Left' || label === 'Right') dpadArmH?.classList.add('pressed-arm');
                         if (label === 'Up' || label === 'Down') dpadArmV?.classList.add('pressed-arm');
                     } else {
+                        // Check if the opposite direction is still pressed to keep the arm down
                         const isHorizontal = virtualKeyStates['Left'] || virtualKeyStates['Right'];
                         const isVertical = virtualKeyStates['Up'] || virtualKeyStates['Down'];
                         if (!isHorizontal) dpadArmH?.classList.remove('pressed-arm');
@@ -628,7 +643,11 @@
                     }
                 }
                 
-                handleVirtualPress(label, isDown);
+                // If it's a D-Pad button, it already called handleVirtualPress(..., false) above.
+                // Call handleVirtualPress again with shouldSendMessage=true only for non-Dpad buttons.
+                if (!['Up', 'Down', 'Left', 'Right'].includes(label)) {
+                    handleVirtualPress(label, isDown);
+                }
             } 
         }
 
@@ -641,6 +660,7 @@
         
         function handleVirtualPress(label, isDown, shouldSendMessage = true) {
             const currentState = virtualKeyStates[label] || false;
+            
             if (isDown && !currentState) {
                 virtualKeyStates[label] = true;
                 if (shouldSendMessage) sendKey(label, true);
@@ -651,6 +671,7 @@
         }
 
         function handlePress(label, isDown, element = null, e = null) {
+            // Prevent interaction when menu is open
             if (currentMenu !== null) {
                 if (e && (e.type === 'touchstart' || e.type === 'mousedown')) e.preventDefault();
                 return;
@@ -842,12 +863,13 @@
                 const label = control.getAttribute('data-label');
                 // Use mousedown/mouseup for desktop/mouse
                 control.addEventListener('mousedown', (e) => handlePress(label, true, control, e));
-                control.addEventListener('mouseup', (e) => handlePress(label, false, control, e));
-                control.addEventListener('mouseleave', (e) => handlePress(label, false, control, e));
+                document.addEventListener('mouseup', (e) => handlePress(label, false, control, e)); // Listen on document for missed releases
+                // Note: Mouseleave/Mouseup on the control are less reliable than document.mouseup
+
                 // Use touch events for mobile
                 control.addEventListener('touchstart', (e) => handlePress(label, true, control, e), { passive: false });
-                control.addEventListener('touchend', (e) => handlePress(label, false, control, e));
-                control.addEventListener('touchcancel', (e) => handlePress(label, false, control, e));
+                document.addEventListener('touchend', (e) => handlePress(label, false, control, e)); // Listen on document for global release
+                document.addEventListener('touchcancel', (e) => handlePress(label, false, control, e));
             });
             document.getElementById('btn-key-map-menu')?.addEventListener('click', toggleKeyBindingMenu);
             document.getElementById('btn-close-key-map')?.addEventListener('click', toggleKeyBindingMenu);
@@ -868,24 +890,19 @@
             // Read the fixed virtual size from CSS variables
             const style = getComputedStyle(document.querySelector('.gbc-body'));
             const consoleWidth = parseFloat(style.getPropertyValue('--console-width')); // 440
-            const consoleHeight = parseFloat(style.getPropertyValue('--console-height')); // 800
+            const consoleHeight = parseFloat(style.getPropertyValue('--console-height')); // 760
             
             // Get the actual available viewport dimensions
             const windowWidth = window.innerWidth;
             const windowHeight = window.innerHeight;
             
-            // Buffer space to prevent scrollbars (critical for Vercel/mobile)
-            const safeBuffer = 50; 
-
-            const requiredWidth = consoleWidth + safeBuffer;
-            const requiredHeight = consoleHeight + safeBuffer;
-            
-            // Calculate scale factors
-            const scaleX = windowWidth / requiredWidth;
-            const scaleY = windowHeight / requiredHeight;
+            // Calculate scale factors directly based on screen vs console size
+            const scaleX = windowWidth / consoleWidth;
+            const scaleY = windowHeight / consoleHeight;
             
             // Use the smaller scale factor, clamped at 1 (don't zoom beyond actual size)
-            const scale = Math.min(scaleX, scaleY, 1);
+            // We use a small buffer (e.g., 0.98) in the ratio calculation to guarantee no scrollbars appear due to floating point math
+            const scale = Math.min(scaleX * 0.98, scaleY * 0.98, 1);
             
             wrapper.style.transform = `scale(${scale})`;
         }
@@ -893,6 +910,7 @@
         window.onload = function() {
             initFirebase();
             setupControlListeners();
+            
             // Start listening and perform initial scale
             scaleConsole(); 
             // Also listen to resize/orientation changes
